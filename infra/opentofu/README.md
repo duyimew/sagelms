@@ -18,6 +18,8 @@ outputs.md          # File handoff giá trị sau khi apply
 2. Chạy `envs/devsecops/` để tạo project services, VPC, GKE, IAM/WIF, Secret Manager, Cloud SQL, Redis và storage buckets.
 3. Cập nhật `outputs.md` sau khi apply thành công để bàn giao cho các thành viên khác.
 
+Runbook thao tác thủ công, tạm dừng chi phí, destroy và tạo lại tài nguyên nằm tại `docs/runbooks/devsecops-cloud-iac-manual-operations.md`.
+
 ## Công cụ cần có
 
 - OpenTofu `>= 1.6.0`

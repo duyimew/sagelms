@@ -1,10 +1,12 @@
-# IAM and Workload Identity
+# IAM Và Workload Identity
 
-## Service Accounts
+Cập nhật lần cuối: 2026-05-18, Asia/Saigon.
 
-GCP service account IDs are limited to 30 characters. The implementation uses shortened account IDs while keeping clear display names.
+## Service Accounts GCP
 
-| Purpose | Service account |
+GCP service account ID bị giới hạn 30 ký tự. Phần triển khai hiện dùng account ID rút gọn nhưng vẫn giữ display name rõ nghĩa.
+
+| Mục đích | Service account |
 |---|---|
 | IaC | `sagelms-devsecops-iac-sa@sagelms.iam.gserviceaccount.com` |
 | GitHub Actions | `sagelms-devsecops-gha-sa@sagelms.iam.gserviceaccount.com` |
@@ -12,28 +14,28 @@ GCP service account IDs are limited to 30 characters. The implementation uses sh
 | FluxCD | `sagelms-devsecops-flux-sa@sagelms.iam.gserviceaccount.com` |
 | App runtime | `sagelms-devsecops-app-sa@sagelms.iam.gserviceaccount.com` |
 
-## GitHub Actions to GCP
+## GitHub Actions Truy Cập GCP
 
-GitHub Actions must use Workload Identity Federation. Long-lived Google service account keys are not part of the baseline.
+GitHub Actions phải dùng Workload Identity Federation. Cấu hình nền không dùng Google service account key JSON dài hạn.
 
-Default WIF values:
+Giá trị WIF mặc định:
 
 ```text
 wif_pool_id     = sagelms-devsecops-github-pool
 wif_provider_id = github
 ```
 
-The GitHub provider trusts only the configured repository:
+GitHub provider chỉ tin cậy repository và deploy branch đã cấu hình:
 
 ```text
-assertion.repository == "<github_owner>/sagelms"
+assertion.repository == "daithang59/sagelms" && assertion.ref == "refs/heads/main"
 ```
 
-Apply workflows should run only from the protected deploy branch and should require GitHub Environment approval.
+Workflow apply chỉ nên chạy từ deploy branch đã bảo vệ và cần GitHub Environment approval.
 
-## Kubernetes to GCP
+## Kubernetes Truy Cập GCP
 
-External Secrets Operator uses Kubernetes Workload Identity:
+External Secrets Operator dùng Kubernetes Workload Identity:
 
 ```text
 KSA: platform-system/external-secrets
@@ -41,13 +43,29 @@ GSA: sagelms-devsecops-eso-sa@sagelms.iam.gserviceaccount.com
 IAM member: serviceAccount:sagelms.svc.id.goog[platform-system/external-secrets]
 ```
 
-ESO receives `roles/secretmanager.secretAccessor` on the SageLMS secret metadata created by OpenTofu.
+ESO được cấp `roles/secretmanager.secretAccessor` trên các Secret Manager metadata do OpenTofu tạo cho SageLMS.
 
-## Runtime Secret Contract
+Trạng thái thực tế hiện tại:
 
-`auth-service` expects these environment variables:
+```text
+KSA annotation: iam.gke.io/gcp-service-account=sagelms-devsecops-eso-sa@sagelms.iam.gserviceaccount.com
+ClusterSecretStore: gcpsm-sagelms-devsecops
+ClusterSecretStore status: Valid, Ready=True
+```
 
-| Env var | Source Kubernetes Secret/key |
+FluxCD đã có Google service account chuẩn bị sẵn:
+
+```text
+GSA: sagelms-devsecops-flux-sa@sagelms.iam.gserviceaccount.com
+```
+
+Chưa có FluxCD KSA mapping được kích hoạt vì FluxCD chưa được bootstrap.
+
+## Quy Ước Secret Cho Runtime
+
+`auth-service` cần các environment variables sau:
+
+| Env var | Kubernetes Secret/key nguồn |
 |---|---|
 | `DB_HOST` | `db-common-secret.DB_HOST` |
 | `DB_PORT` | `db-common-secret.DB_PORT` |
@@ -57,4 +75,4 @@ ESO receives `roles/secretmanager.secretAccessor` on the SageLMS secret metadata
 | `JWT_SECRET` | `jwt-secret.JWT_SECRET` |
 | `GATEWAY_SHARED_SECRET` | `gateway-shared-secret.GATEWAY_SHARED_SECRET` |
 
-OpenTofu creates Secret Manager metadata only. Add secret versions outside OpenTofu with `gcloud secrets versions add`.
+OpenTofu chỉ tạo Secret Manager metadata. Secret versions phải được thêm ngoài OpenTofu bằng `gcloud secrets versions add`.

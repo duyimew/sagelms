@@ -1,5 +1,6 @@
 resource "google_sql_database_instance" "main" {
   #checkov:skip=CKV_GCP_79:PostgreSQL 16 is intentionally pinned for the SageLMS pgvector/application baseline.
+  #checkov:skip=CKV_GCP_6:Cloud SQL enforces encrypted connections with ssl_mode=ENCRYPTED_ONLY; require_ssl is deprecated in the Google provider/API.
   count = var.enabled ? 1 : 0
 
   project             = var.project_id
@@ -21,7 +22,7 @@ resource "google_sql_database_instance" "main" {
       ipv4_enabled                                  = false
       private_network                               = var.network_self_link
       enable_private_path_for_google_cloud_services = true
-      require_ssl                                   = true
+      ssl_mode                                      = "ENCRYPTED_ONLY"
     }
 
     backup_configuration {
