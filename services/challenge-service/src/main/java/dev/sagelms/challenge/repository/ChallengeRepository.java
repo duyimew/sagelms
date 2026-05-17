@@ -15,28 +15,32 @@ public interface ChallengeRepository extends JpaRepository<Challenge, UUID> {
 
     @Query("""
         select c from Challenge c
-        where (:category is null or lower(c.category) = lower(:category))
-          and (:search is null or :search = ''
-           or lower(c.title) like lower(concat('%', :search, '%'))
-           or lower(coalesce(c.description, '')) like lower(concat('%', :search, '%'))
-           or lower(coalesce(c.category, '')) like lower(concat('%', :search, '%')))
+        where (:hasCategory = false or lower(c.category) = :category)
+          and (:hasSearch = false
+           or lower(c.title) like :searchPattern
+           or lower(coalesce(c.description, '')) like :searchPattern
+           or lower(coalesce(c.category, '')) like :searchPattern)
         """)
     Page<Challenge> findAllFiltered(
-            @Param("search") String search,
+            @Param("hasSearch") boolean hasSearch,
+            @Param("searchPattern") String searchPattern,
+            @Param("hasCategory") boolean hasCategory,
             @Param("category") String category,
             Pageable pageable);
 
     @Query("""
         select c from Challenge c
         where c.status = dev.sagelms.challenge.entity.ChallengeStatus.PUBLISHED
-          and (:category is null or lower(c.category) = lower(:category))
-          and (:search is null or :search = ''
-           or lower(c.title) like lower(concat('%', :search, '%'))
-           or lower(coalesce(c.description, '')) like lower(concat('%', :search, '%'))
-           or lower(coalesce(c.category, '')) like lower(concat('%', :search, '%')))
+          and (:hasCategory = false or lower(c.category) = :category)
+          and (:hasSearch = false
+           or lower(c.title) like :searchPattern
+           or lower(coalesce(c.description, '')) like :searchPattern
+           or lower(coalesce(c.category, '')) like :searchPattern)
         """)
     Page<Challenge> findPublishedFiltered(
-            @Param("search") String search,
+            @Param("hasSearch") boolean hasSearch,
+            @Param("searchPattern") String searchPattern,
+            @Param("hasCategory") boolean hasCategory,
             @Param("category") String category,
             Pageable pageable);
 
@@ -44,15 +48,17 @@ public interface ChallengeRepository extends JpaRepository<Challenge, UUID> {
         select c from Challenge c
         where (c.status = dev.sagelms.challenge.entity.ChallengeStatus.PUBLISHED
            or c.instructorId = :viewerId)
-          and (:category is null or lower(c.category) = lower(:category))
-          and (:search is null or :search = ''
-           or lower(c.title) like lower(concat('%', :search, '%'))
-           or lower(coalesce(c.description, '')) like lower(concat('%', :search, '%'))
-           or lower(coalesce(c.category, '')) like lower(concat('%', :search, '%')))
+          and (:hasCategory = false or lower(c.category) = :category)
+          and (:hasSearch = false
+           or lower(c.title) like :searchPattern
+           or lower(coalesce(c.description, '')) like :searchPattern
+           or lower(coalesce(c.category, '')) like :searchPattern)
         """)
     Page<Challenge> findVisibleToInstructorFiltered(
             @Param("viewerId") UUID viewerId,
-            @Param("search") String search,
+            @Param("hasSearch") boolean hasSearch,
+            @Param("searchPattern") String searchPattern,
+            @Param("hasCategory") boolean hasCategory,
             @Param("category") String category,
             Pageable pageable);
 

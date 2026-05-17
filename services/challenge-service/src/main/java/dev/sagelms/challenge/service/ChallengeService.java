@@ -44,15 +44,25 @@ public class ChallengeService {
 
     @Transactional(readOnly = true)
     public Page<ChallengeResponse> listChallenges(String search, String category, UUID viewerId, String roles, Pageable pageable) {
-        String normalizedSearch = search != null && !search.isBlank() ? search.trim() : null;
-        String normalizedCategory = category != null && !category.isBlank() ? category.trim() : null;
+        String normalizedSearch = normalizeFilterValue(search);
+        String normalizedCategory = normalizeFilterValue(category);
+        boolean hasSearch = normalizedSearch != null;
+        boolean hasCategory = normalizedCategory != null;
+        String searchPattern = hasSearch ? "%" + normalizedSearch + "%" : "";
+        String categoryFilter = hasCategory ? normalizedCategory : "";
         Page<Challenge> challenges;
         if (RoleUtils.isAdmin(roles)) {
-            challenges = challengeRepository.findAllFiltered(normalizedSearch, normalizedCategory, pageable);
+            challenges = challengeRepository.findAllFiltered(hasSearch, searchPattern, hasCategory, categoryFilter, pageable);
         } else if (RoleUtils.isInstructor(roles) && viewerId != null) {
-            challenges = challengeRepository.findVisibleToInstructorFiltered(viewerId, normalizedSearch, normalizedCategory, pageable);
+            challenges = challengeRepository.findVisibleToInstructorFiltered(
+                    viewerId,
+                    hasSearch,
+                    searchPattern,
+                    hasCategory,
+                    categoryFilter,
+                    pageable);
         } else {
-            challenges = challengeRepository.findPublishedFiltered(normalizedSearch, normalizedCategory, pageable);
+            challenges = challengeRepository.findPublishedFiltered(hasSearch, searchPattern, hasCategory, categoryFilter, pageable);
         }
         return challenges.map(this::toResponse);
     }
@@ -714,6 +724,12 @@ public class ChallengeService {
     private int normalizedMaxAttempts(Challenge challenge) {
         Integer maxAttempts = challenge.getMaxAttempts();
         return maxAttempts != null && maxAttempts > 0 ? maxAttempts : 1;
+    }
+
+    private String normalizeFilterValue(String value) {
+        return value != null && !value.isBlank()
+                ? value.trim().toLowerCase(Locale.ROOT)
+                : null;
     }
 
     private void ensureAttemptWithinTimeLimit(ChallengeAttempt attempt) {
