@@ -68,9 +68,3 @@ resource "google_service_account_iam_member" "github_impersonates_iac" {
   role               = "roles/iam.serviceAccountTokenCreator"
   member             = "serviceAccount:${google_service_account.managed["github_actions"].email}"
 }
-
-resource "google_service_account_iam_member" "eso_workload_identity" {
-  service_account_id = google_service_account.managed["eso"].name
-  role               = "roles/iam.workloadIdentityUser"
-  member             = "serviceAccount:${var.project_id}.svc.id.goog[${var.eso_ksa_namespace}/${var.eso_ksa_name}]"
-}

@@ -1,7 +1,7 @@
 project_id     = "sagelms"
 project_number = "384858175117"
 region         = "asia-southeast1"
-zones          = ["asia-southeast1-a", "asia-southeast1-b", "asia-southeast1-c"]
+zones          = ["asia-southeast1-b", "asia-southeast1-c"]
 environment    = "devsecops"
 name_prefix    = "sagelms-devsecops"
 

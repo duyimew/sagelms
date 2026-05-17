@@ -45,6 +45,14 @@ module "gke" {
   depends_on = [module.project_services, module.network]
 }
 
+resource "google_service_account_iam_member" "eso_workload_identity" {
+  service_account_id = module.iam.eso_service_account_name
+  role               = "roles/iam.workloadIdentityUser"
+  member             = module.iam.eso_workload_identity_member
+
+  depends_on = [module.gke]
+}
+
 module "storage" {
   source      = "../../modules/storage"
   project_id  = var.project_id

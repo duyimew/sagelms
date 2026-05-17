@@ -19,7 +19,7 @@ variable "region" {
 variable "zones" {
   description = "GKE node zones."
   type        = list(string)
-  default     = ["asia-southeast1-a", "asia-southeast1-b", "asia-southeast1-c"]
+  default     = ["asia-southeast1-b", "asia-southeast1-c"]
 }
 
 variable "environment" {

@@ -24,6 +24,7 @@ resource "google_container_cluster" "main" {
   project                     = var.project_id
   name                        = "${var.name_prefix}-gke"
   location                    = var.region
+  node_locations              = var.zones
   network                     = var.network_name
   subnetwork                  = var.subnet_name
   remove_default_node_pool    = true

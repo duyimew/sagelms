@@ -8,6 +8,11 @@ output "eso_service_account_email" {
   value       = google_service_account.managed["eso"].email
 }
 
+output "eso_service_account_name" {
+  description = "Fully qualified ESO service account resource name."
+  value       = google_service_account.managed["eso"].name
+}
+
 output "flux_service_account_email" {
   description = "FluxCD service account email."
   value       = google_service_account.managed["flux"].email
