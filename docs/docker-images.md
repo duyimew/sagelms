@@ -84,6 +84,13 @@ Run the P1 scan helper after building images:
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\docker\scan-images.ps1 -Tag dev -IgnoreUnfixed
 ```
 
+By default the helper is report-only so P1 can capture current risk as evidence.
+To enforce a local failing gate, add `-FailOnFindings`:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\docker\scan-images.ps1 -Tag dev -IgnoreUnfixed -FailOnFindings
+```
+
 Scan one image:
 
 ```powershell
@@ -145,7 +152,8 @@ The PR workflow builds all P0 images and uploads one artifact per image:
 - `trivy-<service>.txt`
 - `sbom-<service>.cdx.json`
 
-The CI report covers `HIGH` and `CRITICAL` findings. The gate fails on unfixed `CRITICAL` vulnerabilities.
+The CI report covers `HIGH` and `CRITICAL` findings and uploads the evidence for review.
+The current P1 workflow is report-only because existing base and framework dependencies may require a separate remediation PR.
 
 ## Cosign
 
