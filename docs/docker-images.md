@@ -78,6 +78,12 @@ Frontend defaults:
 
 ## Trivy image scan
 
+Run the P1 scan helper after building images:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\docker\scan-images.ps1 -Tag dev -IgnoreUnfixed
+```
+
 Scan one image:
 
 ```powershell
@@ -103,7 +109,13 @@ foreach ($image in $images) {
 
 ## SBOM
 
-Generate CycloneDX SBOM:
+Generate CycloneDX SBOM for all P0 images:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\docker\generate-sbom.ps1 -Tag dev
+```
+
+Generate CycloneDX SBOM for one image:
 
 ```powershell
 New-Item -ItemType Directory -Force reports/sbom | Out-Null
@@ -118,7 +130,22 @@ After push, resolve image digest:
 docker inspect --format='{{index .RepoDigests 0}}' harbor.example.com/sagelms/auth-service:<git-sha>
 ```
 
+Generate a local digest report for pushed or pulled images:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\docker\inspect-digests.ps1 -RegistryPrefix harbor.example.com/sagelms -Tag <git-sha>
+```
+
 Deploy manifests should prefer digest references when FluxCD/GitOps is ready.
+
+## CI image evidence
+
+The PR workflow builds all P0 images and uploads one artifact per image:
+
+- `trivy-<service>.txt`
+- `sbom-<service>.cdx.json`
+
+The CI report covers `HIGH` and `CRITICAL` findings. The gate fails on unfixed `CRITICAL` vulnerabilities.
 
 ## Cosign
 

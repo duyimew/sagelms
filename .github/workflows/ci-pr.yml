@@ -122,6 +122,7 @@ jobs:
               - 'services/auth-service/**'
               - 'services/course-service/**'
               - 'services/content-service/**'
+              - 'services/challenge-service/**'
               - 'services/progress-service/**'
               - 'services/assessment-service/**'
               - 'services/worker/**'
@@ -130,9 +131,21 @@ jobs:
             python:
               - 'services/ai-tutor-service/**'
             docker:
+              - 'apps/web/Dockerfile'
+              - 'apps/web/nginx.conf'
               - 'services/gateway/Dockerfile'
+              - 'services/gateway/.dockerignore'
               - 'services/auth-service/Dockerfile'
+              - 'services/auth-service/.dockerignore'
+              - 'services/course-service/Dockerfile'
+              - 'services/course-service/.dockerignore'
+              - 'services/content-service/Dockerfile'
+              - 'services/content-service/.dockerignore'
+              - 'services/challenge-service/Dockerfile'
+              - 'services/challenge-service/.dockerignore'
               - 'infra/docker/**'
+              - 'scripts/docker/**'
+              - 'docs/docker-images.md'
 
   # --------------------------------------------------
   # Unit tests — Java services (matrix)
@@ -149,6 +162,7 @@ jobs:
           - auth-service
           - course-service
           - content-service
+          - challenge-service
           - progress-service
           - assessment-service
           - worker
@@ -298,25 +312,65 @@ jobs:
       - run: pytest -v
 
   # --------------------------------------------------
-  # Docker — Build smoke test (no push)
+  # Docker — Build and supply-chain checks (no push)
   # --------------------------------------------------
   docker_build:
-    name: "Docker: Build"
+    name: "Docker: Build, scan, SBOM"
     needs: changes
-    if: needs.changes.outputs.docker == 'true' || needs.changes.outputs.java == 'true'
+    if: needs.changes.outputs.docker == 'true' || needs.changes.outputs.java == 'true' || needs.changes.outputs.frontend == 'true'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         include:
+          - service: web
+            context: apps/web
           - service: gateway
             context: services/gateway
           - service: auth-service
             context: services/auth-service
+          - service: course-service
+            context: services/course-service
+          - service: content-service
+            context: services/content-service
+          - service: challenge-service
+            context: services/challenge-service
     steps:
       - uses: actions/checkout@v4
       - name: Build Docker image
         run: docker build -t sagelms-${{ matrix.service }}:ci-test ${{ matrix.context }}
+      - name: Generate Trivy report
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: sagelms-${{ matrix.service }}:ci-test
+          format: table
+          output: trivy-${{ matrix.service }}.txt
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "0"
+      - name: Generate CycloneDX SBOM
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: sagelms-${{ matrix.service }}:ci-test
+          format: cyclonedx
+          output: sbom-${{ matrix.service }}.cdx.json
+          exit-code: "0"
+      - name: Upload image evidence
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: docker-evidence-${{ matrix.service }}
+          path: |
+            trivy-${{ matrix.service }}.txt
+            sbom-${{ matrix.service }}.cdx.json
+      - name: Fail on critical vulnerabilities
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: sagelms-${{ matrix.service }}:ci-test
+          format: table
+          severity: CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
 
   # --------------------------------------------------
   # Status gate — single check for branch protection
@@ -374,4 +428,3 @@ jobs:
           fi
           echo ""
           echo "✅ All CI checks passed!"
-
