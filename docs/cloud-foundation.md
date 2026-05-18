@@ -26,11 +26,16 @@
 - Database baseline đã chuyển sang CloudNativePG trên GKE với PostgreSQL 16.
 - Cloud SQL cũ `sagelms-devsecops-postgres` đã xóa vì môi trường cloud chưa có dữ liệu cần migrate.
 - Cloud SQL Admin API đã disable khỏi project sau khi loại Cloud SQL khỏi baseline.
-- OpenTofu chỉ quản lý CloudNativePG backup foundation: GCS bucket, Google Service Account, bucket IAM và Workload Identity binding cho KSA `sagelms-data/sagelms-postgres`.
-- CloudNativePG runtime gồm operator, Barman Cloud Plugin, Cluster CR, ObjectStore và ScheduledBackup sẽ được quản lý bằng GitOps/FluxCD.
+- OpenTofu quản lý CloudNativePG backup foundation: GCS bucket, Google Service Account, bucket IAM và Workload Identity binding cho KSA `sagelms-data/sagelms-postgres`.
+- CloudNativePG runtime tối thiểu đã được cài trên GKE: cert-manager, CloudNativePG operator, Barman Cloud Plugin, ObjectStore, Cluster CR và ScheduledBackup.
 - Database name là `sagelms`.
 - App user MVP là `sagelms_app`.
-- Endpoint runtime dự kiến là `sagelms-postgres-rw.sagelms-data.svc.cluster.local:5432`.
+- Endpoint runtime là `sagelms-postgres-rw.sagelms-data.svc.cluster.local:5432`.
+- Cluster `sagelms-data/sagelms-postgres` đang `Ready=True`, 1 instance ready, primary `sagelms-postgres-1`.
+- WAL archive đã `ContinuousArchiving=True:ContinuousArchivingSuccess`.
+- Manual backup đầu tiên đã `phase=completed`, backup ID `20260518T144145`, object đã có trên bucket `gs://sagelms-cnpg-backup-sagelms`.
+- Extensions đã tạo: `pgcrypto`, `vector`.
+- Schemas đã tạo: `auth`, `course`, `content`, `progress`, `assessment`, `ai_tutor`.
 - Secret Manager đã có version cho DB host/port/name, CNPG app username/password và CNPG superuser password.
 - Memorystore Redis 7 Standard HA được provision với private IP.
 - Redis AUTH được bật mặc định. AUTH string do Google sinh ra là dữ liệu nhạy cảm và phải được lưu vào Secret Manager ngoài workflow OpenTofu.
@@ -56,6 +61,7 @@
 - ClusterSecretStore `gcpsm-sagelms-devsecops` đang `Ready=True`.
 - ExternalSecrets cho DB, Redis, JWT, gateway shared secret và Grafana admin đã đồng bộ.
 - Manifest ExternalSecret mới cho CloudNativePG nằm ở `infra/k8s/devsecops` và đã apply thành công.
+- Manifest runtime CloudNativePG nằm ở `infra/k8s/devsecops/cloudnativepg-runtime` và đã apply thành công.
 - ExternalSecrets mới đã đồng bộ: `sagelms-data/sagelms-postgres-app-secret`, `sagelms-data/sagelms-postgres-superuser-secret`, `sagelms-devsecops/db-app-secret`.
 - Harbor pull secret và LLM API key hiện mới có metadata, chờ value thật từ nhóm.
 
@@ -70,7 +76,7 @@
 ## Rủi Ro Đã Biết
 
 - Full OpenTofu plan hiện no-op sau khi node pool được tạo lại.
-- CloudNativePG chạy cùng failure domain với GKE. Không coi PVC là backup; phải bật base backup/WAL archive ra GCS và chạy restore drill trước khi bàn giao dữ liệu thật.
+- CloudNativePG chạy cùng failure domain với GKE. Không coi PVC là backup; base backup/WAL archive ra GCS đã hoạt động, nhưng vẫn phải chạy restore drill trước khi bàn giao dữ liệu thật.
 - CloudNativePG secret value được tạo ngoài OpenTofu để tránh đưa password vào state.
 - Redis AUTH string có thể xuất hiện trong OpenTofu state vì provider expose nó như một sensitive generated attribute. Cần giới hạn quyền đọc state bucket.
 - Redis TLS có thể yêu cầu cấu hình trust-store ở phía ứng dụng. Cần validate từng service client trước khi rollout.

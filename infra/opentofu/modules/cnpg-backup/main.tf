@@ -36,6 +36,12 @@ resource "google_storage_bucket_iam_member" "backup_object_admin" {
   member = "serviceAccount:${google_service_account.backup.email}"
 }
 
+resource "google_storage_bucket_iam_member" "backup_bucket_reader" {
+  bucket = google_storage_bucket.backup.name
+  role   = "roles/storage.legacyBucketReader"
+  member = "serviceAccount:${google_service_account.backup.email}"
+}
+
 resource "google_service_account_iam_member" "backup_workload_identity" {
   service_account_id = google_service_account.backup.name
   role               = "roles/iam.workloadIdentityUser"

@@ -66,11 +66,16 @@ $env:Path = "C:\Users\THANG\AppData\Local\Google\Cloud SDK\google-cloud-sdk\bin;
 - Cloud SQL Admin API `sqladmin.googleapis.com`: đã disable khỏi project.
 - Namespace operator: `cnpg-system`
 - Namespace database: `sagelms-data`
-- Cluster CR dự kiến: `sagelms-postgres`
+- CloudNativePG operator: đã cài bằng Helm chart `cnpg/cloudnative-pg` version `0.28.2`, app `1.29.1`
+- Barman Cloud Plugin: đã cài bằng Helm chart `cnpg/plugin-barman-cloud` version `0.6.0`, app `v0.12.0`
+- cert-manager: đã cài bằng Helm chart `jetstack/cert-manager` version `v1.20.2`
+- Cluster CR: `sagelms-postgres`
 - Database: `sagelms`
 - App user MVP: `sagelms_app`
-- RW service dự kiến: `sagelms-postgres-rw.sagelms-data.svc.cluster.local:5432`
-- Runtime CloudNativePG chưa deploy; hiện mới hoàn thành cloud/Kubernetes foundation.
+- RW service: `sagelms-postgres-rw.sagelms-data.svc.cluster.local:5432`
+- Runtime status: `Cluster in healthy state`, `Ready=True`, 1 instance ready, primary `sagelms-postgres-1`
+- PostgreSQL extensions đã tạo: `pgcrypto`, `vector`
+- Schemas đã tạo: `auth`, `course`, `content`, `progress`, `assessment`, `ai_tutor`
 
 CloudNativePG backup foundation đã apply:
 
@@ -82,8 +87,12 @@ CloudNativePG backup foundation đã apply:
 - Uniform bucket-level access: đã bật
 - Public access prevention: enforced
 - Backup GSA: `sagelms-devsecops-cnpg-sa@sagelms.iam.gserviceaccount.com`
-- Backup KSA dự kiến: `sagelms-data/sagelms-postgres`
+- Bucket IAM cho backup GSA: `roles/storage.objectAdmin`, `roles/storage.legacyBucketReader`
+- Backup KSA: `sagelms-data/sagelms-postgres`
 - Workload Identity member: `serviceAccount:sagelms.svc.id.goog[sagelms-data/sagelms-postgres]`
+- WAL archive: `ContinuousArchiving=True:ContinuousArchivingSuccess`
+- Manual backup kiểm chứng: `sagelms-postgres-manual-20260518214142`, phase `completed`, backup ID `20260518T144145`
+- GCS backup objects đã kiểm chứng: `base/20260518T144145/backup.info`, `base/20260518T144145/data.tar.gz`, các WAL `.gz` dưới `wals/`
 
 ## Memorystore Redis
 
@@ -210,7 +219,7 @@ Các ExternalSecret mới đã apply và đồng bộ:
 - `sagelms-data/sagelms-postgres-app-secret`
 - `sagelms-data/sagelms-postgres-superuser-secret`
 
-Kubernetes foundation đã tạo được dù node pool đang tắt:
+Kubernetes foundation hiện đã chạy trên node pool đã khôi phục:
 
 - Namespace `cnpg-system`
 - Namespace `sagelms-data`
@@ -231,5 +240,5 @@ Chưa đồng bộ vì source secret chưa có value thật:
 
 - Thành viên 1 có thể dùng project, region, tên GKE cluster, WIF provider, GitHub Actions GSA và OpenTofu path để làm CI/CD workflow.
 - Thành viên 2 cần cung cấp Harbor endpoint/project/robot credential hoặc Docker config JSON cho `sagelms-devsecops-harbor-pull-secret`.
-- Thành viên 3 có thể dùng GKE cluster, namespaces, ESO mapping, ClusterSecretStore, CloudNativePG backup bucket/GSA và Kubernetes secret contract để viết runtime manifests.
-- Bước tiếp theo trước khi deploy app thật: cài CloudNativePG operator/Barman plugin, tạo ObjectStore, Cluster CR và ScheduledBackup.
+- Thành viên 3 có thể dùng GKE cluster, namespaces, ESO mapping, ClusterSecretStore, CloudNativePG runtime manifests, `sagelms-postgres-rw` service và backup/WAL archive đã kiểm chứng để tích hợp runtime app.
+- Bước tiếp theo trước khi deploy app thật: chạy restore drill tối thiểu, chốt migration/schema chính thức và cập nhật manifests ứng dụng dùng service/secret contract CloudNativePG.
