@@ -1,9 +1,9 @@
-package dev.sagelms.challenge.service;
+package dev.sagelms.assessment.service;
 
-import dev.sagelms.challenge.dto.*;
-import dev.sagelms.challenge.entity.*;
-import dev.sagelms.challenge.repository.*;
-import dev.sagelms.challenge.security.RoleUtils;
+import dev.sagelms.assessment.dto.*;
+import dev.sagelms.assessment.entity.*;
+import dev.sagelms.assessment.repository.*;
+import dev.sagelms.assessment.security.RoleUtils;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -18,206 +18,213 @@ import java.util.stream.Collectors;
 
 @Service
 @Transactional
-public class ChallengeService {
+public class AssessmentService {
 
-    private final ChallengeRepository challengeRepository;
-    private final ChallengeQuestionSetRepository questionSetRepository;
-    private final ChallengeQuestionRepository questionRepository;
-    private final ChallengeChoiceRepository choiceRepository;
-    private final ChallengeAttemptRepository attemptRepository;
-    private final ChallengeAnswerRepository answerRepository;
+    private final AssessmentRepository assessmentRepository;
+    private final AssessmentQuestionSetRepository questionSetRepository;
+    private final AssessmentQuestionRepository questionRepository;
+    private final AssessmentChoiceRepository choiceRepository;
+    private final AssessmentAttemptRepository attemptRepository;
+    private final AssessmentAnswerRepository answerRepository;
+    private final CourseAccessClient courseAccessClient;
 
-    public ChallengeService(
-            ChallengeRepository challengeRepository,
-            ChallengeQuestionSetRepository questionSetRepository,
-            ChallengeQuestionRepository questionRepository,
-            ChallengeChoiceRepository choiceRepository,
-            ChallengeAttemptRepository attemptRepository,
-            ChallengeAnswerRepository answerRepository) {
-        this.challengeRepository = challengeRepository;
+    public AssessmentService(
+            AssessmentRepository assessmentRepository,
+            AssessmentQuestionSetRepository questionSetRepository,
+            AssessmentQuestionRepository questionRepository,
+            AssessmentChoiceRepository choiceRepository,
+            AssessmentAttemptRepository attemptRepository,
+            AssessmentAnswerRepository answerRepository,
+            CourseAccessClient courseAccessClient) {
+        this.assessmentRepository = assessmentRepository;
         this.questionSetRepository = questionSetRepository;
         this.questionRepository = questionRepository;
         this.choiceRepository = choiceRepository;
         this.attemptRepository = attemptRepository;
         this.answerRepository = answerRepository;
+        this.courseAccessClient = courseAccessClient;
     }
 
     @Transactional(readOnly = true)
-    public Page<ChallengeResponse> listChallenges(String search, String category, UUID viewerId, String roles, Pageable pageable) {
+    public Page<AssessmentResponse> listCourseAssessments(UUID courseId, String search, String category, UUID viewerId, String roles, Pageable pageable) {
         String normalizedSearch = search != null && !search.isBlank() ? search.trim().toLowerCase(Locale.ROOT) : null;
         String normalizedCategory = category != null && !category.isBlank() ? category.trim().toLowerCase(Locale.ROOT) : null;
-        Page<Challenge> challenges;
-        if (RoleUtils.isAdmin(roles)) {
-            challenges = challengeRepository.findAllFiltered(normalizedSearch, normalizedCategory, pageable);
-        } else if (RoleUtils.isInstructor(roles) && viewerId != null) {
-            challenges = challengeRepository.findVisibleToInstructorFiltered(viewerId, normalizedSearch, normalizedCategory, pageable);
+        Page<Assessment> Assessments;
+        if (RoleUtils.isAdmin(roles) || courseAccessClient.isCourseOwner(courseId, viewerId)) {
+            Assessments = assessmentRepository.findAllFiltered(courseId, normalizedSearch, normalizedCategory, pageable);
         } else {
-            challenges = challengeRepository.findPublishedFiltered(normalizedSearch, normalizedCategory, pageable);
+            requireCourseContentAccess(courseId, viewerId, roles);
+            Assessments = assessmentRepository.findPublishedFiltered(courseId, normalizedSearch, normalizedCategory, pageable);
         }
-        return challenges.map(this::toResponse);
+        return Assessments.map(this::toResponse);
     }
 
-    public ChallengeResponse createChallenge(ChallengeRequest request, UUID instructorId, String roles) {
+    public AssessmentResponse createAssessment(UUID courseId, AssessmentRequest request, UUID instructorId, String roles) {
         requireInstructorOrAdmin(roles);
         if (instructorId == null) {
             throw new ForbiddenException("Missing user context.");
         }
-        Challenge challenge = new Challenge();
-        applyChallengeRequest(challenge, request);
-        challenge.setInstructorId(instructorId);
-        Challenge saved = challengeRepository.save(challenge);
+        requireCourseManager(courseId, instructorId, roles);
+        Assessment Assessment = new Assessment();
+        applyAssessmentRequest(Assessment, request);
+        Assessment.setCourseId(courseId);
+        Assessment.setInstructorId(instructorId);
+        Assessment saved = assessmentRepository.save(Assessment);
         return toResponse(saved);
     }
 
     @Transactional(readOnly = true)
-    public ChallengeDetailResponse getChallenge(UUID challengeId, UUID viewerId, String roles) {
-        Challenge challenge = findChallenge(challengeId);
-        requireCanView(challenge, viewerId, roles);
-        boolean manager = canManage(challenge, viewerId, roles);
-        return new ChallengeDetailResponse(
-                toResponse(challenge),
-                getQuestions(challengeId, manager),
-                getQuestionSets(challengeId, viewerId, roles));
+    public AssessmentDetailResponse getAssessment(UUID AssessmentId, UUID viewerId, String roles) {
+        Assessment Assessment = findAssessment(AssessmentId);
+        requireCanView(Assessment, viewerId, roles);
+        boolean manager = canManage(Assessment, viewerId, roles);
+        return new AssessmentDetailResponse(
+                toResponse(Assessment),
+                getQuestions(AssessmentId, manager),
+                getQuestionSets(AssessmentId, viewerId, roles));
     }
 
-    public ChallengeResponse updateChallenge(UUID challengeId, ChallengeRequest request, UUID userId, String roles) {
-        Challenge challenge = findChallenge(challengeId);
-        requireCanManage(challenge, userId, roles);
-        applyChallengeRequest(challenge, request);
-        return toResponse(challengeRepository.save(challenge));
+    public AssessmentResponse updateAssessment(UUID AssessmentId, AssessmentRequest request, UUID userId, String roles) {
+        Assessment Assessment = findAssessment(AssessmentId);
+        requireCanManage(Assessment, userId, roles);
+        applyAssessmentRequest(Assessment, request);
+        return toResponse(assessmentRepository.save(Assessment));
     }
 
-    public void deleteChallenge(UUID challengeId, UUID userId, String roles) {
-        Challenge challenge = findChallenge(challengeId);
-        requireCanManage(challenge, userId, roles);
-        challengeRepository.delete(challenge);
+    public void deleteAssessment(UUID AssessmentId, UUID userId, String roles) {
+        Assessment Assessment = findAssessment(AssessmentId);
+        requireCanManage(Assessment, userId, roles);
+        assessmentRepository.delete(Assessment);
     }
 
     @Transactional(readOnly = true)
-    public List<ChallengeQuestionSetResponse> getQuestionSets(UUID challengeId, UUID viewerId, String roles) {
-        Challenge challenge = findChallenge(challengeId);
-        requireCanView(challenge, viewerId, roles);
-        return questionSetRepository.findByChallengeIdOrderBySortOrderAsc(challengeId).stream()
+    public List<AssessmentQuestionSetResponse> getQuestionSets(UUID AssessmentId, UUID viewerId, String roles) {
+        Assessment Assessment = findAssessment(AssessmentId);
+        requireCanView(Assessment, viewerId, roles);
+        return questionSetRepository.findByAssessmentIdOrderBySortOrderAsc(AssessmentId).stream()
                 .map(questionSet -> toQuestionSetResponse(questionSet, viewerId))
                 .toList();
     }
 
     @Transactional(readOnly = true)
-    public ChallengeQuestionSetDetailResponse getQuestionSet(UUID questionSetId, UUID viewerId, String roles) {
-        ChallengeQuestionSet questionSet = findQuestionSet(questionSetId);
-        requireCanView(questionSet.getChallenge(), viewerId, roles);
-        boolean revealCorrect = canManage(questionSet.getChallenge(), viewerId, roles);
-        return new ChallengeQuestionSetDetailResponse(
+    public AssessmentQuestionSetDetailResponse getQuestionSet(UUID questionSetId, UUID viewerId, String roles) {
+        AssessmentQuestionSet questionSet = findQuestionSet(questionSetId);
+        requireCanView(questionSet.getAssessment(), viewerId, roles);
+        boolean revealCorrect = canManage(questionSet.getAssessment(), viewerId, roles);
+        return new AssessmentQuestionSetDetailResponse(
                 toQuestionSetResponse(questionSet, viewerId),
                 getQuestionSetQuestions(questionSetId, revealCorrect));
     }
 
-    public ChallengeQuestionSetResponse createQuestionSet(
-            UUID challengeId,
-            ChallengeQuestionSetRequest request,
+    public AssessmentQuestionSetResponse createQuestionSet(
+            UUID AssessmentId,
+            AssessmentQuestionSetRequest request,
             UUID userId,
             String roles) {
-        Challenge challenge = findChallenge(challengeId);
-        requireCanManage(challenge, userId, roles);
-        ChallengeQuestionSet questionSet = new ChallengeQuestionSet();
-        questionSet.setChallenge(challenge);
+        Assessment Assessment = findAssessment(AssessmentId);
+        requireCanManage(Assessment, userId, roles);
+        AssessmentQuestionSet questionSet = new AssessmentQuestionSet();
+        questionSet.setAssessment(Assessment);
         applyQuestionSetRequest(questionSet, request);
-        ChallengeQuestionSet saved = questionSetRepository.save(questionSet);
+        AssessmentQuestionSet saved = questionSetRepository.save(questionSet);
         return toQuestionSetResponse(saved, userId);
     }
 
-    public ChallengeQuestionSetResponse updateQuestionSet(
+    public AssessmentQuestionSetResponse updateQuestionSet(
             UUID questionSetId,
-            ChallengeQuestionSetRequest request,
+            AssessmentQuestionSetRequest request,
             UUID userId,
             String roles) {
-        ChallengeQuestionSet questionSet = findQuestionSet(questionSetId);
-        requireCanManage(questionSet.getChallenge(), userId, roles);
-        requireNoSubmittedAttemptsForQuestionSet(questionSetId);
+        AssessmentQuestionSet questionSet = findQuestionSet(questionSetId);
+        requireCanManage(questionSet.getAssessment(), userId, roles);
+        deleteSubmittedAttemptsForQuestionSet(questionSetId);
         applyQuestionSetRequest(questionSet, request);
         return toQuestionSetResponse(questionSetRepository.save(questionSet), userId);
     }
 
     public void deleteQuestionSet(UUID questionSetId, UUID userId, String roles) {
-        ChallengeQuestionSet questionSet = findQuestionSet(questionSetId);
-        requireCanManage(questionSet.getChallenge(), userId, roles);
-        requireNoSubmittedAttemptsForQuestionSet(questionSetId);
+        AssessmentQuestionSet questionSet = findQuestionSet(questionSetId);
+        requireCanManage(questionSet.getAssessment(), userId, roles);
+        deleteSubmittedAttemptsForQuestionSet(questionSetId);
         questionSetRepository.delete(questionSet);
     }
 
     @Transactional(readOnly = true)
-    public List<ChallengeQuestionResponse> getQuestions(UUID challengeId, UUID viewerId, String roles) {
-        Challenge challenge = findChallenge(challengeId);
-        requireCanView(challenge, viewerId, roles);
-        return getQuestions(challengeId, canManage(challenge, viewerId, roles));
+    public List<AssessmentQuestionResponse> getQuestions(UUID AssessmentId, UUID viewerId, String roles) {
+        Assessment Assessment = findAssessment(AssessmentId);
+        requireCanView(Assessment, viewerId, roles);
+        return getQuestions(AssessmentId, canManage(Assessment, viewerId, roles));
     }
 
-    public ChallengeQuestionResponse addQuestion(UUID questionSetId, ChallengeQuestionRequest request, UUID userId, String roles) {
-        ChallengeQuestionSet questionSet = findQuestionSet(questionSetId);
-        requireCanManage(questionSet.getChallenge(), userId, roles);
-        requireNoSubmittedAttemptsForQuestionSet(questionSet.getId());
-        ChallengeQuestion question = new ChallengeQuestion();
-        question.setChallenge(questionSet.getChallenge());
+    public AssessmentQuestionResponse addQuestion(UUID questionSetId, AssessmentQuestionRequest request, UUID userId, String roles) {
+        AssessmentQuestionSet questionSet = findQuestionSet(questionSetId);
+        requireCanManage(questionSet.getAssessment(), userId, roles);
+        deleteSubmittedAttemptsForQuestionSet(questionSet.getId());
+        AssessmentQuestion question = new AssessmentQuestion();
+        question.setAssessment(questionSet.getAssessment());
         question.setQuestionSet(questionSet);
         applyQuestionRequest(question, request);
-        ChallengeQuestion saved = questionRepository.save(question);
+        AssessmentQuestion saved = questionRepository.save(question);
         saveChoices(saved, request);
         return toQuestionResponse(saved, true);
     }
 
-    public ChallengeQuestionResponse addQuestionToChallenge(UUID challengeId, ChallengeQuestionRequest request, UUID userId, String roles) {
-        Challenge challenge = findChallenge(challengeId);
-        requireCanManage(challenge, userId, roles);
-        ChallengeQuestionSet questionSet = getOrCreateDefaultQuestionSet(challenge);
+    public AssessmentQuestionResponse addQuestionToAssessment(UUID AssessmentId, AssessmentQuestionRequest request, UUID userId, String roles) {
+        Assessment Assessment = findAssessment(AssessmentId);
+        requireCanManage(Assessment, userId, roles);
+        AssessmentQuestionSet questionSet = getOrCreateDefaultQuestionSet(Assessment);
         return addQuestion(questionSet.getId(), request, userId, roles);
     }
 
-    public ChallengeQuestionResponse updateQuestion(UUID questionId, ChallengeQuestionRequest request, UUID userId, String roles) {
-        ChallengeQuestion question = findQuestion(questionId);
-        requireCanManage(question.getChallenge(), userId, roles);
+    public AssessmentQuestionResponse updateQuestion(UUID questionId, AssessmentQuestionRequest request, UUID userId, String roles) {
+        AssessmentQuestion question = findQuestion(questionId);
+        requireCanManage(question.getAssessment(), userId, roles);
         UUID questionSetId = question.getQuestionSet() != null ? question.getQuestionSet().getId() : null;
         if (questionSetId != null) {
-            requireNoSubmittedAttemptsForQuestionSet(questionSetId);
+            deleteSubmittedAttemptsForQuestionSet(questionSetId);
         }
         applyQuestionRequest(question, request);
-        ChallengeQuestion saved = questionRepository.save(question);
+        AssessmentQuestion saved = questionRepository.save(question);
         syncChoices(saved, request);
         return toQuestionResponse(saved, true);
     }
 
     public void deleteQuestion(UUID questionId, UUID userId, String roles) {
-        ChallengeQuestion question = findQuestion(questionId);
-        requireCanManage(question.getChallenge(), userId, roles);
+        AssessmentQuestion question = findQuestion(questionId);
+        requireCanManage(question.getAssessment(), userId, roles);
         if (question.getQuestionSet() != null) {
-            requireNoSubmittedAttemptsForQuestionSet(question.getQuestionSet().getId());
+            deleteSubmittedAttemptsForQuestionSet(question.getQuestionSet().getId());
         }
         questionRepository.delete(question);
     }
 
     public StartAttemptResponse startAttempt(UUID questionSetId, UUID participantId, String participantEmail, String roles) {
         if (participantId == null) {
-            throw new ForbiddenException("Login required to join this challenge.");
+            throw new ForbiddenException("Login required to join this Assessment.");
         }
-        ChallengeQuestionSet questionSet = findQuestionSet(questionSetId);
-        Challenge challenge = questionSet.getChallenge();
-        if (challenge.getStatus() != ChallengeStatus.PUBLISHED && !canManage(challenge, participantId, roles)) {
-            throw new ForbiddenException("Challenge is not open for participation.");
+        AssessmentQuestionSet questionSet = findQuestionSet(questionSetId);
+        Assessment Assessment = questionSet.getAssessment();
+        if (Assessment.getStatus() != AssessmentStatus.PUBLISHED && !canManage(Assessment, participantId, roles)) {
+            throw new ForbiddenException("Assessment is not open for participation.");
+        }
+        if (Assessment.getStatus() == AssessmentStatus.PUBLISHED && !canManage(Assessment, participantId, roles)) {
+            requireCourseContentAccess(Assessment.getCourseId(), participantId, roles);
         }
         long submittedAttempts = attemptRepository.countByQuestionSetIdAndParticipantIdAndSubmittedAtIsNotNull(
                 questionSetId,
                 participantId);
-        int maxAttempts = normalizedMaxAttempts(challenge);
+        int maxAttempts = normalizedMaxAttempts(questionSet);
         if (submittedAttempts >= maxAttempts) {
-            throw new ValidationException("You have already submitted this challenge attempt.");
+            throw new ValidationException("You have already submitted this Assessment attempt.");
         }
 
-        Optional<ChallengeAttempt> existingAttempt = attemptRepository
+        Optional<AssessmentAttempt> existingAttempt = attemptRepository
                 .findFirstByQuestionSetIdAndParticipantIdAndSubmittedAtIsNullOrderByStartedAtDesc(questionSetId, participantId);
         if (existingAttempt.isPresent()) {
-            ChallengeAttempt attempt = existingAttempt.get();
+            AssessmentAttempt attempt = existingAttempt.get();
             return new StartAttemptResponse(
                     attempt.getId(),
-                    challenge.getId(),
+                    Assessment.getId(),
                     questionSet.getId(),
                     participantId,
                     attempt.getStartedAt(),
@@ -225,16 +232,16 @@ public class ChallengeService {
                     getQuestionSetQuestions(questionSetId, false));
         }
 
-        ChallengeAttempt attempt = new ChallengeAttempt();
-        attempt.setChallenge(challenge);
+        AssessmentAttempt attempt = new AssessmentAttempt();
+        attempt.setAssessment(Assessment);
         attempt.setQuestionSet(questionSet);
         attempt.setParticipantId(participantId);
         attempt.setParticipantEmail(participantEmail);
         attempt.setGradingStatus(GradingStatus.IN_PROGRESS);
-        ChallengeAttempt saved = attemptRepository.save(attempt);
+        AssessmentAttempt saved = attemptRepository.save(attempt);
         return new StartAttemptResponse(
                 saved.getId(),
-                challenge.getId(),
+                Assessment.getId(),
                 questionSet.getId(),
                 participantId,
                 saved.getStartedAt(),
@@ -242,17 +249,17 @@ public class ChallengeService {
                 getQuestionSetQuestions(questionSetId, false));
     }
 
-    public StartAttemptResponse startChallengeAttempt(UUID challengeId, UUID participantId, String participantEmail, String roles) {
-        Challenge challenge = findChallenge(challengeId);
-        ChallengeQuestionSet questionSet = getOrCreateDefaultQuestionSet(challenge);
+    public StartAttemptResponse startAssessmentAttempt(UUID AssessmentId, UUID participantId, String participantEmail, String roles) {
+        Assessment Assessment = findAssessment(AssessmentId);
+        AssessmentQuestionSet questionSet = getOrCreateDefaultQuestionSet(Assessment);
         return startAttempt(questionSet.getId(), participantId, participantEmail, roles);
     }
 
-    public ChallengeAttemptResultResponse submitAttempt(
+    public AssessmentAttemptResultResponse submitAttempt(
             UUID attemptId,
-            SubmitChallengeAttemptRequest request,
+            SubmitAssessmentAttemptRequest request,
             UUID participantId) {
-        ChallengeAttempt attempt = attemptRepository.findById(attemptId)
+        AssessmentAttempt attempt = attemptRepository.findById(attemptId)
                 .orElseThrow(() -> new NotFoundException("Attempt not found: " + attemptId));
         if (!attempt.getParticipantId().equals(participantId)) {
             throw new ForbiddenException("You can only submit your own attempt.");
@@ -262,23 +269,23 @@ public class ChallengeService {
         }
         ensureAttemptWithinTimeLimit(attempt);
 
-        Map<UUID, SubmitChallengeAnswerRequest> submitted = new HashMap<>();
-        for (SubmitChallengeAnswerRequest answer : Optional.ofNullable(request.answers()).orElse(List.of())) {
+        Map<UUID, SubmitAssessmentAnswerRequest> submitted = new HashMap<>();
+        for (SubmitAssessmentAnswerRequest answer : Optional.ofNullable(request.answers()).orElse(List.of())) {
             if (answer.questionId() != null) {
                 submitted.put(answer.questionId(), answer);
             }
         }
 
-        List<ChallengeQuestion> questions = questionRepository.findByQuestionSetIdOrderBySortOrderAsc(
+        List<AssessmentQuestion> questions = questionRepository.findByQuestionSetIdOrderBySortOrderAsc(
                 attempt.getQuestionSet().getId());
-        for (ChallengeQuestion question : questions) {
-            SubmitChallengeAnswerRequest submittedAnswer = submitted.get(question.getId());
-            ChallengeAnswer answer = new ChallengeAnswer();
+        for (AssessmentQuestion question : questions) {
+            SubmitAssessmentAnswerRequest submittedAnswer = submitted.get(question.getId());
+            AssessmentAnswer answer = new AssessmentAnswer();
             answer.setAttempt(attempt);
             answer.setQuestion(question);
 
-            if (question.getType() == ChallengeQuestionType.MULTIPLE_CHOICE) {
-                ChallengeChoice selected = null;
+            if (question.getType() == AssessmentQuestionType.MULTIPLE_CHOICE) {
+                AssessmentChoice selected = null;
                 if (submittedAnswer != null && submittedAnswer.choiceId() != null) {
                     selected = choiceRepository.findById(submittedAnswer.choiceId())
                             .filter(choice -> choice.getQuestion().getId().equals(question.getId()))
@@ -300,15 +307,17 @@ public class ChallengeService {
         attempt.setScore(null);
         attempt.setMaxScore(BigDecimal.TEN);
         attempt.setPassed(null);
-        attempt.setSubmittedAt(Instant.now());
+        Instant submittedAt = Instant.now();
+        attempt.setSubmittedAt(submittedAt);
+        attempt.setUsedSeconds(calculateUsedSeconds(attempt.getStartedAt(), submittedAt));
         attempt.setGradingStatus(GradingStatus.PENDING_REVIEW);
         attemptRepository.save(attempt);
         return toAttemptResult(attempt, answerRepository.findByAttemptId(attemptId), false);
     }
 
     @Transactional(readOnly = true)
-    public ChallengeAttemptResultResponse getAttemptResult(UUID attemptId, UUID participantId) {
-        ChallengeAttempt attempt = attemptRepository.findById(attemptId)
+    public AssessmentAttemptResultResponse getAttemptResult(UUID attemptId, UUID participantId) {
+        AssessmentAttempt attempt = attemptRepository.findById(attemptId)
                 .orElseThrow(() -> new NotFoundException("Attempt not found: " + attemptId));
         if (!attempt.getParticipantId().equals(participantId)) {
             throw new ForbiddenException("You can only view your own attempt result.");
@@ -317,50 +326,80 @@ public class ChallengeService {
     }
 
     @Transactional(readOnly = true)
-    public List<ChallengeSubmissionSummaryResponse> getSubmissions(UUID challengeId, UUID userId, String roles) {
-        Challenge challenge = findChallenge(challengeId);
-        requireCanManage(challenge, userId, roles);
-        return attemptRepository.findByChallengeIdAndSubmittedAtIsNotNullOrderBySubmittedAtDesc(challengeId).stream()
+    public List<AssessmentSubmissionSummaryResponse> getSubmissions(UUID AssessmentId, UUID userId, String roles) {
+        Assessment Assessment = findAssessment(AssessmentId);
+        requireCanManage(Assessment, userId, roles);
+        return attemptRepository.findByAssessmentIdAndSubmittedAtIsNotNullOrderBySubmittedAtDesc(AssessmentId).stream()
                 .map(this::toSubmissionSummary)
                 .toList();
     }
 
     @Transactional(readOnly = true)
-    public List<ChallengeSubmissionSummaryResponse> getMyGradedSubmissions(UUID challengeId, UUID participantId, String roles) {
-        if (participantId == null) {
-            throw new ForbiddenException("Login required to view challenge results.");
-        }
-        Challenge challenge = findChallenge(challengeId);
-        requireCanView(challenge, participantId, roles);
-        return attemptRepository.findByChallengeIdAndParticipantIdAndSubmittedAtIsNotNullOrderBySubmittedAtDesc(challengeId, participantId).stream()
+    public List<AssessmentSubmissionSummaryResponse> getCourseSubmissions(UUID courseId, UUID userId, String roles) {
+        requireCourseManager(courseId, userId, roles);
+        return attemptRepository.findByAssessmentCourseIdAndSubmittedAtIsNotNullOrderBySubmittedAtDesc(courseId).stream()
+                .map(this::toSubmissionSummary)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<AssessmentSubmissionSummaryResponse> getMyCourseResults(UUID courseId, UUID participantId, String roles) {
+        requireCourseContentAccess(courseId, participantId, roles);
+        return attemptRepository.findByAssessmentCourseIdAndParticipantIdAndSubmittedAtIsNotNullOrderBySubmittedAtDesc(courseId, participantId).stream()
                 .filter(attempt -> attempt.getGradingStatus() == GradingStatus.GRADED)
                 .map(this::toSubmissionSummary)
                 .toList();
     }
 
     @Transactional(readOnly = true)
-    public List<ChallengeSubmissionSummaryResponse> getParticipantSubmissions(UUID challengeId, UUID participantId, UUID userId, String roles) {
-        Challenge challenge = findChallenge(challengeId);
-        requireCanManage(challenge, userId, roles);
-        return attemptRepository.findByChallengeIdAndParticipantIdAndSubmittedAtIsNotNullOrderBySubmittedAtDesc(challengeId, participantId).stream()
+    public List<AssessmentGradebookEntryResponse> getCourseGradebook(UUID courseId, UUID userId, String roles) {
+        requireCourseManager(courseId, userId, roles);
+        Map<UUID, List<AssessmentAttempt>> byParticipant = attemptRepository
+                .findByAssessmentCourseIdAndSubmittedAtIsNotNullOrderBySubmittedAtDesc(courseId)
+                .stream()
+                .collect(Collectors.groupingBy(AssessmentAttempt::getParticipantId));
+        return byParticipant.entrySet().stream()
+                .map(entry -> toGradebookEntry(entry.getKey(), entry.getValue()))
+                .sorted(Comparator.comparing(entry -> Optional.ofNullable(entry.participantEmail()).orElse("")))
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<AssessmentSubmissionSummaryResponse> getMyGradedSubmissions(UUID AssessmentId, UUID participantId, String roles) {
+        if (participantId == null) {
+            throw new ForbiddenException("Login required to view Assessment results.");
+        }
+        Assessment Assessment = findAssessment(AssessmentId);
+        requireCanView(Assessment, participantId, roles);
+        return attemptRepository.findByAssessmentIdAndParticipantIdAndSubmittedAtIsNotNullOrderBySubmittedAtDesc(AssessmentId, participantId).stream()
+                .filter(attempt -> attempt.getGradingStatus() == GradingStatus.GRADED)
                 .map(this::toSubmissionSummary)
                 .toList();
     }
 
     @Transactional(readOnly = true)
-    public List<ChallengeLeaderboardEntryResponse> getLeaderboard(UUID challengeId, UUID viewerId, String roles) {
-        Challenge challenge = findChallenge(challengeId);
-        requireCanView(challenge, viewerId, roles);
+    public List<AssessmentSubmissionSummaryResponse> getParticipantSubmissions(UUID AssessmentId, UUID participantId, UUID userId, String roles) {
+        Assessment Assessment = findAssessment(AssessmentId);
+        requireCanManage(Assessment, userId, roles);
+        return attemptRepository.findByAssessmentIdAndParticipantIdAndSubmittedAtIsNotNullOrderBySubmittedAtDesc(AssessmentId, participantId).stream()
+                .map(this::toSubmissionSummary)
+                .toList();
+    }
 
-        List<ChallengeQuestionSet> visibleSets = visibleQuestionSets(challengeId);
+    @Transactional(readOnly = true)
+    public List<AssessmentLeaderboardEntryResponse> getLeaderboard(UUID AssessmentId, UUID viewerId, String roles) {
+        Assessment Assessment = findAssessment(AssessmentId);
+        requireCanView(Assessment, viewerId, roles);
+
+        List<AssessmentQuestionSet> visibleSets = visibleQuestionSets(AssessmentId);
         Set<UUID> visibleSetIds = visibleSets.stream()
-                .map(ChallengeQuestionSet::getId)
+                .map(AssessmentQuestionSet::getId)
                 .collect(Collectors.toSet());
         long totalQuestionSets = visibleSets.size();
 
         Map<UUID, LeaderboardParticipant> participants = new HashMap<>();
-        for (ChallengeAttempt attempt : attemptRepository
-                .findByChallengeIdAndGradingStatusAndSubmittedAtIsNotNullOrderBySubmittedAtAsc(challengeId, GradingStatus.GRADED)) {
+        for (AssessmentAttempt attempt : attemptRepository
+                .findByAssessmentIdAndGradingStatusAndSubmittedAtIsNotNullOrderBySubmittedAtAsc(AssessmentId, GradingStatus.GRADED)) {
             if (attempt.getQuestionSet() == null || !visibleSetIds.contains(attempt.getQuestionSet().getId())) {
                 continue;
             }
@@ -382,10 +421,10 @@ public class ChallengeService {
                         .thenComparing(score -> score.participantId().toString()))
                 .toList();
 
-        List<ChallengeLeaderboardEntryResponse> leaderboard = new ArrayList<>();
+        List<AssessmentLeaderboardEntryResponse> leaderboard = new ArrayList<>();
         for (int index = 0; index < scores.size(); index++) {
             LeaderboardParticipantScore score = scores.get(index);
-            leaderboard.add(new ChallengeLeaderboardEntryResponse(
+            leaderboard.add(new AssessmentLeaderboardEntryResponse(
                     index + 1,
                     score.participantId(),
                     score.participantEmail(),
@@ -401,31 +440,31 @@ public class ChallengeService {
     }
 
     @Transactional(readOnly = true)
-    public ChallengeAttemptResultResponse getAttemptReview(UUID attemptId, UUID userId, String roles) {
-        ChallengeAttempt attempt = attemptRepository.findById(attemptId)
+    public AssessmentAttemptResultResponse getAttemptReview(UUID attemptId, UUID userId, String roles) {
+        AssessmentAttempt attempt = attemptRepository.findById(attemptId)
                 .orElseThrow(() -> new NotFoundException("Attempt not found: " + attemptId));
-        requireCanManage(attempt.getChallenge(), userId, roles);
+        requireCanManage(attempt.getAssessment(), userId, roles);
         return toAttemptResult(attempt, answerRepository.findByAttemptId(attemptId), true);
     }
 
-    public ChallengeAttemptResultResponse gradeAttempt(
+    public AssessmentAttemptResultResponse gradeAttempt(
             UUID attemptId,
-            GradeChallengeAttemptRequest request,
+            GradeAssessmentAttemptRequest request,
             UUID graderId,
             String roles) {
-        ChallengeAttempt attempt = attemptRepository.findById(attemptId)
+        AssessmentAttempt attempt = attemptRepository.findById(attemptId)
                 .orElseThrow(() -> new NotFoundException("Attempt not found: " + attemptId));
-        requireCanManage(attempt.getChallenge(), graderId, roles);
+        requireCanManage(attempt.getAssessment(), graderId, roles);
         if (attempt.getSubmittedAt() == null) {
             throw new ValidationException("Attempt has not been submitted.");
         }
 
         Map<UUID, Boolean> grades = Optional.ofNullable(request.answers()).orElse(List.of()).stream()
-                .collect(Collectors.toMap(GradeChallengeAnswerRequest::questionId, GradeChallengeAnswerRequest::isCorrect));
-        List<ChallengeAnswer> answers = answerRepository.findByAttemptId(attemptId);
+                .collect(Collectors.toMap(GradeAssessmentAnswerRequest::questionId, GradeAssessmentAnswerRequest::isCorrect));
+        List<AssessmentAnswer> answers = answerRepository.findByAttemptId(attemptId);
         BigDecimal earnedPoints = BigDecimal.ZERO;
         BigDecimal totalPoints = BigDecimal.ZERO;
-        for (ChallengeAnswer answer : answers) {
+        for (AssessmentAnswer answer : answers) {
             Boolean isCorrect = grades.get(answer.getQuestion().getId());
             if (isCorrect != null) {
                 answer.setIsCorrect(isCorrect);
@@ -453,26 +492,26 @@ public class ChallengeService {
     }
 
     public void deleteAttempt(UUID attemptId, UUID userId, String roles) {
-        ChallengeAttempt attempt = attemptRepository.findById(attemptId)
+        AssessmentAttempt attempt = attemptRepository.findById(attemptId)
                 .orElseThrow(() -> new NotFoundException("Attempt not found: " + attemptId));
-        requireCanManage(attempt.getChallenge(), userId, roles);
+        requireCanManage(attempt.getAssessment(), userId, roles);
         answerRepository.deleteAll(answerRepository.findByAttemptId(attemptId));
         attemptRepository.delete(attempt);
     }
 
-    private List<ChallengeQuestionSet> visibleQuestionSets(UUID challengeId) {
-        return questionSetRepository.findByChallengeIdOrderBySortOrderAsc(challengeId).stream()
+    private List<AssessmentQuestionSet> visibleQuestionSets(UUID AssessmentId) {
+        return questionSetRepository.findByAssessmentIdOrderBySortOrderAsc(AssessmentId).stream()
                 .filter(questionSet -> !isDefaultEmptyQuestionSet(questionSet))
                 .toList();
     }
 
-    private boolean isDefaultEmptyQuestionSet(ChallengeQuestionSet questionSet) {
+    private boolean isDefaultEmptyQuestionSet(AssessmentQuestionSet questionSet) {
         return questionRepository.countByQuestionSetId(questionSet.getId()) == 0
                 && questionSet.getTitle() != null
                 && "tap cau hoi mac dinh".equals(questionSet.getTitle().trim().toLowerCase());
     }
 
-    private LeaderboardSetScore toLeaderboardSetScore(ChallengeAttempt attempt) {
+    private LeaderboardSetScore toLeaderboardSetScore(AssessmentAttempt attempt) {
         long usedSeconds = calculateUsedSeconds(attempt);
         long limitSeconds = calculateLimitSeconds(attempt.getQuestionSet());
         BigDecimal score = nullToZero(attempt.getScore());
@@ -491,58 +530,70 @@ public class ChallengeService {
         return new LeaderboardSetScore(attempt, usedSeconds, limitSeconds, rankingScore, score);
     }
 
-    private long calculateUsedSeconds(ChallengeAttempt attempt) {
+    private long calculateUsedSeconds(AssessmentAttempt attempt) {
+        if (attempt.getUsedSeconds() != null) {
+            return Math.max(0, attempt.getUsedSeconds());
+        }
         if (attempt.getStartedAt() == null || attempt.getSubmittedAt() == null) {
             return 0;
         }
-        return Math.max(0, Duration.between(attempt.getStartedAt(), attempt.getSubmittedAt()).getSeconds());
+        return calculateUsedSeconds(attempt.getStartedAt(), attempt.getSubmittedAt());
     }
 
-    private long calculateLimitSeconds(ChallengeQuestionSet questionSet) {
+    private long calculateUsedSeconds(Instant startedAt, Instant submittedAt) {
+        if (startedAt == null || submittedAt == null) {
+            return 0;
+        }
+        return Math.max(0, Duration.between(startedAt, submittedAt).getSeconds());
+    }
+
+    private long calculateLimitSeconds(AssessmentQuestionSet questionSet) {
         Integer minutes = questionSet != null ? questionSet.getTimeLimitMinutes() : null;
         return minutes != null && minutes > 0 ? minutes * 60L : 0L;
     }
 
-    private ChallengeResponse toResponse(Challenge challenge) {
-        return ChallengeResponse.from(challenge, questionRepository.countByChallengeId(challenge.getId()));
+    private AssessmentResponse toResponse(Assessment Assessment) {
+        return AssessmentResponse.from(Assessment, questionRepository.countByAssessmentId(Assessment.getId()));
     }
 
-    private ChallengeQuestionSetResponse toQuestionSetResponse(ChallengeQuestionSet questionSet, UUID viewerId) {
+    private AssessmentQuestionSetResponse toQuestionSetResponse(AssessmentQuestionSet questionSet, UUID viewerId) {
         long questionCount = questionRepository.countByQuestionSetId(questionSet.getId());
         long attemptCount = viewerId != null
                 ? attemptRepository.countByQuestionSetIdAndParticipantIdAndSubmittedAtIsNotNull(questionSet.getId(), viewerId)
                 : 0;
         UUID latestAttemptId = viewerId == null ? null
                 : attemptRepository.findFirstByQuestionSetIdAndParticipantIdAndSubmittedAtIsNotNullOrderBySubmittedAtDesc(questionSet.getId(), viewerId)
-                    .map(ChallengeAttempt::getId)
+                    .map(AssessmentAttempt::getId)
                     .orElse(null);
-        return ChallengeQuestionSetResponse.from(questionSet, questionCount, attemptCount > 0, latestAttemptId, attemptCount);
+        return AssessmentQuestionSetResponse.from(questionSet, questionCount, attemptCount > 0, latestAttemptId, attemptCount);
     }
 
-    private List<ChallengeQuestionResponse> getQuestions(UUID challengeId, boolean revealCorrect) {
-        return questionRepository.findByChallengeIdOrderBySortOrderAsc(challengeId).stream()
+    private List<AssessmentQuestionResponse> getQuestions(UUID AssessmentId, boolean revealCorrect) {
+        return questionRepository.findByAssessmentIdOrderBySortOrderAsc(AssessmentId).stream()
                 .map(question -> toQuestionResponse(question, revealCorrect))
                 .toList();
     }
 
-    private List<ChallengeQuestionResponse> getQuestionSetQuestions(UUID questionSetId, boolean revealCorrect) {
+    private List<AssessmentQuestionResponse> getQuestionSetQuestions(UUID questionSetId, boolean revealCorrect) {
         return questionRepository.findByQuestionSetIdOrderBySortOrderAsc(questionSetId).stream()
                 .map(question -> toQuestionResponse(question, revealCorrect))
                 .toList();
     }
 
-    private ChallengeQuestionResponse toQuestionResponse(ChallengeQuestion question, boolean revealCorrect) {
-        List<ChallengeChoiceResponse> choices = choiceRepository.findByQuestionIdOrderBySortOrderAsc(question.getId())
+    private AssessmentQuestionResponse toQuestionResponse(AssessmentQuestion question, boolean revealCorrect) {
+        List<AssessmentChoiceResponse> choices = choiceRepository.findByQuestionIdOrderBySortOrderAsc(question.getId())
                 .stream()
-                .map(choice -> ChallengeChoiceResponse.from(choice, revealCorrect))
+                .map(choice -> AssessmentChoiceResponse.from(choice, revealCorrect))
                 .toList();
-        return ChallengeQuestionResponse.from(question, choices);
+        return AssessmentQuestionResponse.from(question, choices);
     }
 
-    private ChallengeSubmissionSummaryResponse toSubmissionSummary(ChallengeAttempt attempt) {
-        return new ChallengeSubmissionSummaryResponse(
+    private AssessmentSubmissionSummaryResponse toSubmissionSummary(AssessmentAttempt attempt) {
+        return new AssessmentSubmissionSummaryResponse(
                 attempt.getId(),
-                attempt.getChallenge().getId(),
+                attempt.getAssessment().getId(),
+                attempt.getAssessment().getCourseId(),
+                attempt.getAssessment().getTitle(),
                 attempt.getQuestionSet().getId(),
                 attempt.getQuestionSet().getTitle(),
                 attempt.getParticipantId(),
@@ -553,26 +604,59 @@ public class ChallengeService {
                 attempt.getGradingStatus(),
                 attempt.getStartedAt(),
                 attempt.getSubmittedAt(),
-                attempt.getGradedAt());
+                attempt.getGradedAt(),
+                attempt.getUsedSeconds());
     }
 
-    private void applyChallengeRequest(Challenge challenge, ChallengeRequest request) {
-        challenge.setTitle(request.title());
-        challenge.setDescription(request.description());
-        challenge.setThumbnailUrl(request.thumbnailUrl());
-        challenge.setCategory(request.category());
-        challenge.setStatus(request.status() != null ? request.status() : ChallengeStatus.DRAFT);
-        challenge.setTimeLimitMinutes(request.timeLimitMinutes());
-        challenge.setMaxAttempts(request.maxAttempts() != null && request.maxAttempts() > 0 ? request.maxAttempts() : 1);
+    private AssessmentGradebookEntryResponse toGradebookEntry(UUID participantId, List<AssessmentAttempt> attempts) {
+        long submittedAttempts = attempts.size();
+        List<AssessmentAttempt> gradedAttempts = attempts.stream()
+                .filter(attempt -> attempt.getGradingStatus() == GradingStatus.GRADED)
+                .toList();
+        BigDecimal totalScore = gradedAttempts.stream()
+                .map(attempt -> nullToZero(attempt.getScore()))
+                .reduce(BigDecimal.ZERO, BigDecimal::add)
+                .setScale(2, RoundingMode.HALF_UP);
+        BigDecimal totalMaxScore = gradedAttempts.stream()
+                .map(attempt -> nullToZero(attempt.getMaxScore()))
+                .reduce(BigDecimal.ZERO, BigDecimal::add)
+                .setScale(2, RoundingMode.HALF_UP);
+        BigDecimal averageScore = totalMaxScore.compareTo(BigDecimal.ZERO) == 0
+                ? BigDecimal.ZERO
+                : totalScore.multiply(BigDecimal.TEN).divide(totalMaxScore, 2, RoundingMode.HALF_UP);
+        String participantEmail = attempts.stream()
+                .map(AssessmentAttempt::getParticipantEmail)
+                .filter(Objects::nonNull)
+                .findFirst()
+                .orElse(null);
+        return new AssessmentGradebookEntryResponse(
+                participantId,
+                participantEmail,
+                gradedAttempts.size(),
+                submittedAttempts,
+                totalScore,
+                totalMaxScore,
+                averageScore);
     }
 
-    private void applyQuestionSetRequest(ChallengeQuestionSet questionSet, ChallengeQuestionSetRequest request) {
+    private void applyAssessmentRequest(Assessment Assessment, AssessmentRequest request) {
+        Assessment.setTitle(request.title());
+        Assessment.setDescription(request.description());
+        Assessment.setThumbnailUrl(request.thumbnailUrl());
+        Assessment.setCategory(request.category());
+        Assessment.setStatus(request.status() != null ? request.status() : AssessmentStatus.DRAFT);
+        Assessment.setTimeLimitMinutes(request.timeLimitMinutes());
+        Assessment.setMaxAttempts(request.maxAttempts() != null && request.maxAttempts() > 0 ? request.maxAttempts() : 1);
+    }
+
+    private void applyQuestionSetRequest(AssessmentQuestionSet questionSet, AssessmentQuestionSetRequest request) {
         questionSet.setTitle(request.title());
         questionSet.setTimeLimitMinutes(request.timeLimitMinutes());
         questionSet.setSortOrder(request.sortOrder() != null ? request.sortOrder() : 0);
+        questionSet.setMaxAttempts(request.maxAttempts() != null && request.maxAttempts() > 0 ? request.maxAttempts() : null);
     }
 
-    private void applyQuestionRequest(ChallengeQuestion question, ChallengeQuestionRequest request) {
+    private void applyQuestionRequest(AssessmentQuestion question, AssessmentQuestionRequest request) {
         validateQuestion(request);
         question.setTitle(request.title());
         question.setPrompt(request.prompt());
@@ -583,13 +667,13 @@ public class ChallengeService {
         question.setSortOrder(request.sortOrder() != null ? request.sortOrder() : 0);
     }
 
-    private void saveChoices(ChallengeQuestion question, ChallengeQuestionRequest request) {
-        if (question.getType() != ChallengeQuestionType.MULTIPLE_CHOICE) {
+    private void saveChoices(AssessmentQuestion question, AssessmentQuestionRequest request) {
+        if (question.getType() != AssessmentQuestionType.MULTIPLE_CHOICE) {
             return;
         }
         int index = 0;
-        for (ChallengeChoiceRequest choiceRequest : request.choices()) {
-            ChallengeChoice choice = new ChallengeChoice();
+        for (AssessmentChoiceRequest choiceRequest : request.choices()) {
+            AssessmentChoice choice = new AssessmentChoice();
             choice.setQuestion(question);
             choice.setText(choiceRequest.text().trim());
             choice.setIsCorrect(Boolean.TRUE.equals(choiceRequest.isCorrect()));
@@ -599,21 +683,21 @@ public class ChallengeService {
         }
     }
 
-    private void syncChoices(ChallengeQuestion question, ChallengeQuestionRequest request) {
-        if (question.getType() != ChallengeQuestionType.MULTIPLE_CHOICE) {
+    private void syncChoices(AssessmentQuestion question, AssessmentQuestionRequest request) {
+        if (question.getType() != AssessmentQuestionType.MULTIPLE_CHOICE) {
             return;
         }
 
-        List<ChallengeChoice> existingChoices = choiceRepository.findByQuestionIdOrderBySortOrderAsc(question.getId());
-        List<ChallengeChoiceRequest> requestedChoices = Optional.ofNullable(request.choices()).orElse(List.of()).stream()
+        List<AssessmentChoice> existingChoices = choiceRepository.findByQuestionIdOrderBySortOrderAsc(question.getId());
+        List<AssessmentChoiceRequest> requestedChoices = Optional.ofNullable(request.choices()).orElse(List.of()).stream()
                 .filter(choice -> choice.text() != null && !choice.text().isBlank())
                 .toList();
 
         for (int index = 0; index < requestedChoices.size(); index++) {
-            ChallengeChoiceRequest choiceRequest = requestedChoices.get(index);
-            ChallengeChoice choice = index < existingChoices.size()
+            AssessmentChoiceRequest choiceRequest = requestedChoices.get(index);
+            AssessmentChoice choice = index < existingChoices.size()
                     ? existingChoices.get(index)
-                    : new ChallengeChoice();
+                    : new AssessmentChoice();
             choice.setQuestion(question);
             choice.setText(choiceRequest.text().trim());
             choice.setIsCorrect(Boolean.TRUE.equals(choiceRequest.isCorrect()));
@@ -626,15 +710,15 @@ public class ChallengeService {
         }
     }
 
-    private void requireNoSubmittedAttemptsForQuestionSet(UUID questionSetId) {
-        if (!attemptRepository.findByQuestionSetIdAndSubmittedAtIsNotNull(questionSetId).isEmpty()) {
-            throw new ValidationException("This question set already has submitted attempts and cannot be changed.");
+    private void deleteSubmittedAttemptsForQuestionSet(UUID questionSetId) {
+        for (AssessmentAttempt attempt : attemptRepository.findByQuestionSetIdAndSubmittedAtIsNotNull(questionSetId)) {
+            attemptRepository.delete(attempt);
         }
     }
 
-    private void validateQuestion(ChallengeQuestionRequest request) {
-        if (request.type() == ChallengeQuestionType.MULTIPLE_CHOICE) {
-            List<ChallengeChoiceRequest> choices = Optional.ofNullable(request.choices()).orElse(List.of()).stream()
+    private void validateQuestion(AssessmentQuestionRequest request) {
+        if (request.type() == AssessmentQuestionType.MULTIPLE_CHOICE) {
+            List<AssessmentChoiceRequest> choices = Optional.ofNullable(request.choices()).orElse(List.of()).stream()
                     .filter(choice -> choice.text() != null && !choice.text().isBlank())
                     .toList();
             if (choices.size() < 2) {
@@ -647,26 +731,26 @@ public class ChallengeService {
         }
     }
 
-    private ChallengeAttemptResultResponse toAttemptResult(ChallengeAttempt attempt, List<ChallengeAnswer> answers, boolean revealCorrect) {
-        List<ChallengeAnswerResultResponse> answerResults = answers.stream()
+    private AssessmentAttemptResultResponse toAttemptResult(AssessmentAttempt attempt, List<AssessmentAnswer> answers, boolean revealCorrect) {
+        List<AssessmentAnswerResultResponse> answerResults = answers.stream()
                 .map(answer -> {
-                    ChallengeQuestion question = answer.getQuestion();
-                    ChallengeChoice selected = answer.getChoice();
-                    List<ChallengeChoice> choices = question.getType() == ChallengeQuestionType.MULTIPLE_CHOICE
+                    AssessmentQuestion question = answer.getQuestion();
+                    AssessmentChoice selected = answer.getChoice();
+                    List<AssessmentChoice> choices = question.getType() == AssessmentQuestionType.MULTIPLE_CHOICE
                             ? choiceRepository.findByQuestionIdOrderBySortOrderAsc(question.getId())
                             : List.of();
-                    ChallengeChoice correct = choices.stream()
+                    AssessmentChoice correct = choices.stream()
                             .filter(choice -> Boolean.TRUE.equals(choice.getIsCorrect()))
                             .findFirst()
                             .orElse(null);
-                    return new ChallengeAnswerResultResponse(
+                    return new AssessmentAnswerResultResponse(
                             question.getId(),
                             question.getTitle(),
                             question.getPrompt(),
                             question.getType(),
                             question.getPoints(),
                             choices.stream()
-                                    .map(choice -> ChallengeChoiceResponse.from(choice, revealCorrect))
+                                    .map(choice -> AssessmentChoiceResponse.from(choice, revealCorrect))
                                     .toList(),
                             selected != null ? selected.getId() : null,
                             selected != null ? selected.getText() : null,
@@ -680,9 +764,9 @@ public class ChallengeService {
                             attempt.getGradingStatus().name());
                 })
                 .toList();
-        return new ChallengeAttemptResultResponse(
+        return new AssessmentAttemptResultResponse(
                 attempt.getId(),
-                attempt.getChallenge().getId(),
+                attempt.getAssessment().getId(),
                 attempt.getQuestionSet().getId(),
                 attempt.getQuestionSet().getTitle(),
                 attempt.getParticipantId(),
@@ -694,30 +778,35 @@ public class ChallengeService {
                 attempt.getStartedAt(),
                 attempt.getSubmittedAt(),
                 attempt.getGradedAt(),
+                attempt.getUsedSeconds(),
                 answerResults);
     }
 
-    private ChallengeQuestionSet createDefaultQuestionSet(Challenge challenge) {
-        ChallengeQuestionSet questionSet = new ChallengeQuestionSet();
-        questionSet.setChallenge(challenge);
+    private AssessmentQuestionSet createDefaultQuestionSet(Assessment Assessment) {
+        AssessmentQuestionSet questionSet = new AssessmentQuestionSet();
+        questionSet.setAssessment(Assessment);
         questionSet.setTitle("Tap cau hoi mac dinh");
-        questionSet.setTimeLimitMinutes(challenge.getTimeLimitMinutes());
+        questionSet.setTimeLimitMinutes(Assessment.getTimeLimitMinutes());
         questionSet.setSortOrder(0);
         return questionSetRepository.save(questionSet);
     }
 
-    private ChallengeQuestionSet getOrCreateDefaultQuestionSet(Challenge challenge) {
-        return questionSetRepository.findFirstByChallengeIdOrderBySortOrderAsc(challenge.getId())
-                .orElseGet(() -> createDefaultQuestionSet(challenge));
+    private AssessmentQuestionSet getOrCreateDefaultQuestionSet(Assessment Assessment) {
+        return questionSetRepository.findFirstByAssessmentIdOrderBySortOrderAsc(Assessment.getId())
+                .orElseGet(() -> createDefaultQuestionSet(Assessment));
     }
 
-    private int normalizedMaxAttempts(Challenge challenge) {
-        Integer maxAttempts = challenge.getMaxAttempts();
-        return maxAttempts != null && maxAttempts > 0 ? maxAttempts : 1;
+    private int normalizedMaxAttempts(AssessmentQuestionSet questionSet) {
+        Integer maxAttempts = questionSet.getMaxAttempts();
+        if (maxAttempts != null && maxAttempts > 0) {
+            return maxAttempts;
+        }
+        Integer assessmentMaxAttempts = questionSet.getAssessment().getMaxAttempts();
+        return assessmentMaxAttempts != null && assessmentMaxAttempts > 0 ? assessmentMaxAttempts : 1;
     }
 
-    private void ensureAttemptWithinTimeLimit(ChallengeAttempt attempt) {
-        ChallengeQuestionSet questionSet = attempt.getQuestionSet();
+    private void ensureAttemptWithinTimeLimit(AssessmentAttempt attempt) {
+        AssessmentQuestionSet questionSet = attempt.getQuestionSet();
         Integer timeLimitMinutes = questionSet != null ? questionSet.getTimeLimitMinutes() : null;
         if (timeLimitMinutes == null || timeLimitMinutes <= 0 || attempt.getStartedAt() == null) {
             return;
@@ -739,7 +828,7 @@ public class ChallengeService {
     }
 
     private record LeaderboardSetScore(
-            ChallengeAttempt attempt,
+            AssessmentAttempt attempt,
             long usedSeconds,
             long limitSeconds,
             BigDecimal rankingScore,
@@ -835,36 +924,56 @@ public class ChallengeService {
         }
     }
 
-    private Challenge findChallenge(UUID challengeId) {
-        return challengeRepository.findById(challengeId)
-                .orElseThrow(() -> new NotFoundException("Challenge not found: " + challengeId));
+    private Assessment findAssessment(UUID AssessmentId) {
+        return assessmentRepository.findById(AssessmentId)
+                .orElseThrow(() -> new NotFoundException("Assessment not found: " + AssessmentId));
     }
 
-    private ChallengeQuestionSet findQuestionSet(UUID questionSetId) {
+    private AssessmentQuestionSet findQuestionSet(UUID questionSetId) {
         return questionSetRepository.findById(questionSetId)
                 .orElseThrow(() -> new NotFoundException("Question set not found: " + questionSetId));
     }
 
-    private ChallengeQuestion findQuestion(UUID questionId) {
+    private AssessmentQuestion findQuestion(UUID questionId) {
         return questionRepository.findById(questionId)
                 .orElseThrow(() -> new NotFoundException("Question not found: " + questionId));
     }
 
-    private boolean canManage(Challenge challenge, UUID userId, String roles) {
-        return RoleUtils.isAdmin(roles) || (RoleUtils.isInstructor(roles) && userId != null && challenge.getInstructorId().equals(userId));
+    private boolean canManage(Assessment Assessment, UUID userId, String roles) {
+        return RoleUtils.isAdmin(roles)
+                || (RoleUtils.isInstructor(roles) && courseAccessClient.isCourseOwner(Assessment.getCourseId(), userId));
     }
 
-    private void requireCanManage(Challenge challenge, UUID userId, String roles) {
-        if (!canManage(challenge, userId, roles)) {
-            throw new ForbiddenException("Challenge owner or admin role required.");
+    private void requireCanManage(Assessment Assessment, UUID userId, String roles) {
+        if (!canManage(Assessment, userId, roles)) {
+            throw new ForbiddenException("Assessment owner or admin role required.");
         }
     }
 
-    private void requireCanView(Challenge challenge, UUID userId, String roles) {
-        if (challenge.getStatus() == ChallengeStatus.PUBLISHED || canManage(challenge, userId, roles)) {
+    private void requireCanView(Assessment Assessment, UUID userId, String roles) {
+        if (canManage(Assessment, userId, roles)) {
             return;
         }
-        throw new ForbiddenException("Challenge is not published.");
+        if (Assessment.getStatus() == AssessmentStatus.PUBLISHED
+                && courseAccessClient.canAccessCourseContent(Assessment.getCourseId(), userId, roles)) {
+            return;
+        }
+        throw new ForbiddenException("Assessment is not published.");
+    }
+
+    private void requireCourseManager(UUID courseId, UUID userId, String roles) {
+        if (RoleUtils.isAdmin(roles) || courseAccessClient.isCourseOwner(courseId, userId)) {
+            return;
+        }
+        throw new ForbiddenException("Course owner or admin role required.");
+    }
+
+    private void requireCourseContentAccess(UUID courseId, UUID userId, String roles) {
+        if (RoleUtils.isAdmin(roles) || courseAccessClient.isCourseOwner(courseId, userId)
+                || courseAccessClient.canAccessCourseContent(courseId, userId, roles)) {
+            return;
+        }
+        throw new ForbiddenException("Course enrollment is required.");
     }
 
     private void requireInstructorOrAdmin(String roles) {
@@ -885,3 +994,7 @@ public class ChallengeService {
         public ValidationException(String message) { super(message); }
     }
 }
+
+
+
+
