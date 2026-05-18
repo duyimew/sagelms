@@ -2,6 +2,8 @@
 
 > Phiên bản final đề xuất: giữ đầy đủ cấu trúc kế hoạch production-oriented, chuẩn hóa security tooling theo nguyên tắc **mỗi mục đích chọn một công cụ tối ưu**, chỉnh lại thứ tự supply chain cho sát triển khai thực tế: **Build → Scan → Push → Resolve digest → SBOM/attestation → Sign → GitOps**, đồng thời tối ưu phạm vi môi trường cho dự án môn học theo mô hình **một Shared Cloud DevSecOps Environment trên GCP/GKE**. Môi trường cloud này là nơi chính để xây dựng, kiểm thử và trình diễn pipeline CI/CD DevSecOps end-to-end; local chỉ giữ vai trò tối thiểu khi cần debug source code.
 
+> Cập nhật trạng thái 2026-05-18: phần Cloud/IaC foundation đã triển khai xong trên project `sagelms`; Cloud SQL đã được thay bằng CloudNativePG trên GKE vì cloud chưa có dữ liệu cần migrate. CloudNativePG cluster `sagelms-data/sagelms-postgres` đã Ready, WAL archive và manual base backup ra GCS đã kiểm chứng. Phần còn lại để hoàn thiện pipeline end-to-end là GitHub Actions/Harbor/supply-chain, FluxCD GitOps hóa runtime, app manifests/migrations, observability/policy và restore drill.
+
 ## 1. Bối cảnh và mục tiêu
 
 SageLMS là hệ thống LMS theo kiến trúc microservices, tích hợp AI Tutor theo mô hình RAG. Hệ thống bao gồm các module chính như Auth & RBAC, LMS Core, Assessment, AI Tutor, Async Jobs và Frontend React SPA. Dự án hiện định hướng theo cloud-native, microservices, GitOps và DevSecOps nhằm tiến tới khả năng vận hành production.

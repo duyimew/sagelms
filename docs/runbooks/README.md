@@ -12,7 +12,7 @@ runbooks/
 ├── sonarqube-local.md                        ← Hướng dẫn chạy SonarQube self-hosted
 ├── self-hosted-github-runner.md              ← Hướng dẫn setup GitHub Actions runner
 ├── devsecops-cloud-iac-manual-operations.md ← Vận hành thủ công Cloud/IaC DevSecOps
-└── cloudnativepg-foundation-manual-operations.md ← Chạy thủ công CloudNativePG foundation
+└── cloudnativepg-foundation-manual-operations.md ← Chạy thủ công CloudNativePG foundation/runtime
 ```
 
 ### `local-dev.md`
@@ -50,7 +50,7 @@ Hướng dẫn vận hành phần Cloud/IaC DevSecOps:
 
 ### `cloudnativepg-foundation-manual-operations.md`
 
-Ghi lại lệnh đã chạy khi chuyển từ Cloud SQL sang CloudNativePG foundation, và hướng dẫn bật lại node pool, apply namespace/KSA/ExternalSecret cho CloudNativePG.
+Ghi lại lệnh đã chạy khi chuyển từ Cloud SQL sang CloudNativePG, gồm OpenTofu foundation, bật lại node pool, namespace/KSA/ExternalSecret, operator/plugin, Cluster CR, WAL archive và manual backup.
 
 ## Dự kiến bổ sung
 

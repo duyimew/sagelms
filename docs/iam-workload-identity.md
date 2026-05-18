@@ -70,7 +70,7 @@ GSA: sagelms-devsecops-cnpg-sa@sagelms.iam.gserviceaccount.com
 IAM member: serviceAccount:sagelms.svc.id.goog[sagelms-data/sagelms-postgres]
 ```
 
-GSA này được cấp `roles/storage.objectAdmin` trên bucket `sagelms-cnpg-backup-sagelms` để ghi base backup/WAL và đọc khi restore.
+GSA này được cấp `roles/storage.objectAdmin` và `roles/storage.legacyBucketReader` trên bucket `sagelms-cnpg-backup-sagelms` để ghi base backup/WAL, đọc object khi restore và đọc metadata bucket khi Barman Cloud kiểm tra archive destination.
 
 ## Quy Ước Secret Cho Runtime
 
