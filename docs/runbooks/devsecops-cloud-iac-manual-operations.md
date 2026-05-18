@@ -321,7 +321,7 @@ kubectl -n monitoring scale deploy --all --replicas=1
 
 Dùng khi muốn giảm compute cost nhưng vẫn giữ phần lớn resource.
 
-Đưa GKE node pool về 0:
+Đưa GKE node pool về 0 bằng autoscaling min 0:
 
 ```powershell
 & $gcloud container node-pools update $nodePool `
@@ -340,6 +340,58 @@ Dùng khi muốn giảm compute cost nhưng vẫn giữ phần lớn resource.
   --quiet
 ```
 
+Kiểm tra lại:
+
+```powershell
+& $gcloud container clusters describe $cluster `
+  --region $region `
+  --project $projectId `
+  --format="value(currentNodeCount)"
+
+kubectl get nodes
+```
+
+Nếu `currentNodeCount` vẫn lớn hơn `0`, nghĩa là cluster autoscaler đã scale node lên lại để chạy system/platform pods. Khi mục tiêu là tạm dừng chi phí GKE tối đa, dùng chế độ pause cứng:
+
+```powershell
+& $gcloud container node-pools update $nodePool `
+  --cluster $cluster `
+  --region $region `
+  --project $projectId `
+  --no-enable-autoscaling
+
+& $gcloud container clusters resize $cluster `
+  --node-pool $nodePool `
+  --num-nodes 0 `
+  --region $region `
+  --project $projectId `
+  --quiet
+```
+
+Sau pause cứng, các pod hệ thống/platform sẽ chuyển sang `Pending` hoặc không còn node để chạy. Đây là trạng thái chấp nhận được khi mục tiêu là tạm dừng dự án để tiết kiệm chi phí.
+
+Nếu GKE vẫn tự giữ node sau khi operation resize đã `DONE`, kiểm tra:
+
+```powershell
+& $gcloud compute instance-groups managed list `
+  --project $projectId `
+  --format="table(name,zone,targetSize,status.isStable)"
+
+kubectl get nodes
+```
+
+Nếu managed instance groups vẫn có `targetSize > 0`, phương án chắc chắn hơn để tiết kiệm compute là xóa node pool tạm thời nhưng giữ lại GKE control plane và remote state:
+
+```powershell
+& $gcloud container node-pools delete $nodePool `
+  --cluster $cluster `
+  --region $region `
+  --project $projectId `
+  --quiet
+```
+
+Việc này xóa các worker node VM trong node pool, không xóa GKE cluster, VPC, Cloud SQL, Redis, Secret Manager hoặc OpenTofu state. Các pod sẽ không chạy cho đến khi node pool được tạo lại.
+
 Stop Cloud SQL:
 
 ```powershell
@@ -355,6 +407,19 @@ Khôi phục Level 2:
 
 ```powershell
 & $gcloud sql instances patch $sqlInstance --project $projectId --activation-policy=ALWAYS
+
+& $gcloud container node-pools update $nodePool `
+  --cluster $cluster `
+  --region $region `
+  --project $projectId `
+  --no-enable-autoscaling
+
+& $gcloud container clusters resize $cluster `
+  --node-pool $nodePool `
+  --num-nodes 1 `
+  --region $region `
+  --project $projectId `
+  --quiet
 
 & $gcloud container node-pools update $nodePool `
   --cluster $cluster `
@@ -378,6 +443,17 @@ Sau khi khôi phục:
 kubectl get nodes
 tofu plan -no-color -detailed-exitcode
 ```
+
+Nếu trước đó đã xóa node pool để pause, khôi phục bằng OpenTofu:
+
+```powershell
+cd C:\NT548_Project\SageLMS\sagelms\infra\opentofu\envs\devsecops
+$env:GOOGLE_OAUTH_ACCESS_TOKEN = & $gcloud auth print-access-token
+tofu plan -out restore-node-pool.tfplan
+tofu apply restore-node-pool.tfplan
+```
+
+OpenTofu sẽ tạo lại `sagelms-devsecops-main-pool` theo cấu hình HCL hiện tại.
 
 ### Level 3: Xóa Redis Nhưng Giữ Phần Còn Lại
 
