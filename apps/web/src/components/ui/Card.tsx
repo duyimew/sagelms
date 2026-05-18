@@ -18,7 +18,7 @@ interface CardBodyProps {
 
 export function Card({ children, className = '', hover = false }: CardProps) {
   return (
-    <div className={`bg-white rounded-2xl border border-slate-200 shadow-sm ${hover ? 'hover:shadow-lg hover:border-violet-200/50 transition-all duration-300 hover:-translate-y-0.5' : ''} ${className}`}>
+    <div className={`surface-enter bg-white rounded-2xl border border-slate-100 shadow-sm transition-all duration-300 ${hover ? 'interactive-surface hover:shadow-lg hover:shadow-slate-200/50 hover:-translate-y-1.5 hover:border-slate-200' : ''} ${className}`}>
       {children}
     </div>
   );

@@ -32,6 +32,9 @@ class CourseServiceTest {
     @Mock
     private EnrollmentRepository enrollmentRepository;
 
+    @Mock
+    private AuthUserClient authUserClient;
+
     @InjectMocks
     private CourseService courseService;
 
@@ -177,16 +180,18 @@ class CourseServiceTest {
     // ============== DELETE TESTS ==============
 
     @Test
-    void deleteCourse_Success() {
+    void deleteCourse_ArchivesCourse() {
         // Arrange
         when(courseRepository.findById(courseId)).thenReturn(Optional.of(testCourse));
-        doNothing().when(courseRepository).delete(testCourse);
+        when(courseRepository.save(any(Course.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         // Act
         courseService.deleteCourse(courseId, instructorId, "INSTRUCTOR");
 
         // Assert
-        verify(courseRepository, times(1)).delete(testCourse);
+        assertEquals(CourseStatus.ARCHIVED, testCourse.getStatus());
+        verify(courseRepository, times(1)).save(testCourse);
+        verify(courseRepository, never()).delete(testCourse);
     }
 
     @Test
@@ -216,6 +221,32 @@ class CourseServiceTest {
         assertNotNull(response);
         assertEquals(courseId, response.id());
         assertEquals(10, response.enrollmentCount());
+    }
+
+    @Test
+    void getCourseById_IncludesInstructorProfileWhenAvailable() {
+        when(courseRepository.findById(courseId)).thenReturn(Optional.of(testCourse));
+        when(courseRepository.countEnrollments(courseId)).thenReturn(10L);
+        when(authUserClient.getUsersByIds(any())).thenReturn(Map.of(
+                instructorId,
+                new AuthUserClient.UserSummary(
+                        instructorId,
+                        "instructor@sagelms.dev",
+                        "Demo Instructor",
+                        "INSTRUCTOR",
+                        null,
+                        "Senior Backend Instructor",
+                        "Backend bio",
+                        "Java, Spring Boot",
+                        "https://example.com/demo-instructor",
+                        8)
+        ));
+
+        CourseResponse response = courseService.getCourseById(courseId);
+
+        assertEquals("Demo Instructor", response.instructorFullName());
+        assertEquals("Senior Backend Instructor", response.instructorHeadline());
+        assertEquals(8, response.instructorYearsExperience());
     }
 
     @Test
@@ -261,10 +292,82 @@ class CourseServiceTest {
         when(enrollmentRepository.countEnrollmentsByCourseIdsMap(anyList()))
                 .thenReturn(Map.of(courseId, 1L));
 
-        List<CourseResponse> responses = courseService.getCoursesByCategoryForViewer("Programming", "STUDENT");
+        List<CourseResponse> responses = courseService.getCoursesByCategoryForViewer("Programming", null, "STUDENT");
 
         assertEquals(1, responses.size());
         verify(courseRepository, never()).findByCategory("Programming");
+    }
+
+    @Test
+    void getCoursesForViewer_InstructorOnlySeesOwnCourses() {
+        org.springframework.data.domain.Page<Course> page =
+                new org.springframework.data.domain.PageImpl<>(List.of(testCourse));
+        when(courseRepository.findByInstructorId(eq(instructorId), any(org.springframework.data.domain.Pageable.class)))
+                .thenReturn(page);
+        when(enrollmentRepository.countEnrollmentsByCourseIdsMap(anyList()))
+                .thenReturn(Map.of(courseId, 2L));
+
+        org.springframework.data.domain.Page<CourseResponse> responses = courseService.getCoursesForViewer(
+                instructorId,
+                "INSTRUCTOR",
+                org.springframework.data.domain.PageRequest.of(0, 10));
+
+        assertEquals(1, responses.getTotalElements());
+        assertEquals(instructorId, responses.getContent().get(0).instructorId());
+        verify(courseRepository, never()).findAll(any(org.springframework.data.domain.Pageable.class));
+    }
+
+    @Test
+    void getCoursesForViewer_InstructorExploreSeesPublishedCoursesFromOtherInstructors() {
+        UUID otherInstructorId = UUID.randomUUID();
+        Course otherCourse = new Course();
+        otherCourse.setId(UUID.randomUUID());
+        otherCourse.setTitle("Other Instructor Course");
+        otherCourse.setDescription("Published course from another instructor");
+        otherCourse.setInstructorId(otherInstructorId);
+        otherCourse.setStatus(CourseStatus.PUBLISHED);
+        otherCourse.setCategory("Programming");
+
+        org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(0, 10);
+        org.springframework.data.domain.Page<Course> page =
+                new org.springframework.data.domain.PageImpl<>(List.of(otherCourse));
+
+        when(courseRepository.findPublishedCoursesNotOwnedBy(instructorId, pageable)).thenReturn(page);
+        when(enrollmentRepository.countEnrollmentsByCourseIdsMap(anyList())).thenReturn(Map.of(otherCourse.getId(), 4L));
+
+        org.springframework.data.domain.Page<CourseResponse> responses = courseService.getCoursesForViewer(
+                instructorId,
+                "INSTRUCTOR",
+                "explore",
+                pageable);
+
+        assertEquals(1, responses.getTotalElements());
+        assertEquals(otherInstructorId, responses.getContent().get(0).instructorId());
+        verify(courseRepository).findPublishedCoursesNotOwnedBy(instructorId, pageable);
+        verify(courseRepository, never()).findByInstructorId(eq(instructorId), any(org.springframework.data.domain.Pageable.class));
+    }
+
+    @Test
+    void getCourseById_InstructorCanViewOtherPublishedCourse() {
+        UUID otherInstructorId = UUID.randomUUID();
+        testCourse.setStatus(CourseStatus.PUBLISHED);
+        when(courseRepository.findById(courseId)).thenReturn(Optional.of(testCourse));
+        when(courseRepository.countEnrollments(courseId)).thenReturn(0L);
+
+        CourseResponse response = courseService.getCourseById(courseId, otherInstructorId, "INSTRUCTOR");
+
+        assertEquals(courseId, response.id());
+    }
+
+    @Test
+    void getCourseById_InstructorCannotViewOtherDraftCourse() {
+        UUID otherInstructorId = UUID.randomUUID();
+        testCourse.setStatus(CourseStatus.DRAFT);
+        when(courseRepository.findById(courseId)).thenReturn(Optional.of(testCourse));
+
+        assertThrows(CourseService.CourseForbiddenException.class, () ->
+                courseService.getCourseById(courseId, otherInstructorId, "INSTRUCTOR")
+        );
     }
 
     @Test

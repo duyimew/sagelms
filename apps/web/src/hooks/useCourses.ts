@@ -12,6 +12,8 @@ export function useCourses() {
     size?: number;
     search?: string;
     status?: string;
+    category?: string;
+    scope?: 'teaching' | 'explore';
   }) => {
     setLoading(true);
     setError(null);
@@ -21,6 +23,8 @@ export function useCourses() {
       if (params?.size !== undefined) queryParams.set('size', String(params.size));
       if (params?.search) queryParams.set('search', params.search);
       if (params?.status) queryParams.set('status', params.status);
+      if (params?.category) queryParams.set('category', params.category);
+      if (params?.scope) queryParams.set('scope', params.scope);
 
       const query = queryParams.toString();
       const url = `/courses${query ? `?${query}` : ''}`;

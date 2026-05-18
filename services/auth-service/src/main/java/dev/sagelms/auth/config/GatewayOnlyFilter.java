@@ -14,11 +14,15 @@ import java.io.IOException;
 public class GatewayOnlyFilter extends OncePerRequestFilter {
 
     private static final String GATEWAY_SECRET_HEADER = "X-Gateway-Secret";
+    private static final String INTERNAL_SECRET_HEADER = "X-Internal-Secret";
 
     private final String gatewaySecret;
+    private final String internalSecret;
 
-    public GatewayOnlyFilter(@Value("${app.gateway.secret:dev-gateway-secret-change-me}") String gatewaySecret) {
+    public GatewayOnlyFilter(@Value("${app.gateway.secret:dev-gateway-secret-change-me}") String gatewaySecret,
+                             @Value("${app.internal.secret:dev-internal-secret-change-me}") String internalSecret) {
         this.gatewaySecret = gatewaySecret;
+        this.internalSecret = internalSecret;
     }
 
     @Override
@@ -26,7 +30,19 @@ public class GatewayOnlyFilter extends OncePerRequestFilter {
                                     HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
         String path = request.getRequestURI();
-        if (path.startsWith("/api/v1/users") && !gatewaySecret.equals(request.getHeader(GATEWAY_SECRET_HEADER))) {
+        if (path.startsWith("/internal/")) {
+            if (!internalSecret.equals(request.getHeader(INTERNAL_SECRET_HEADER))) {
+                response.sendError(HttpServletResponse.SC_FORBIDDEN, "Invalid internal service credentials.");
+                return;
+            }
+            filterChain.doFilter(request, response);
+            return;
+        }
+
+        if ((path.startsWith("/api/v1/users")
+                || path.equals("/api/v1/auth/me")
+                || path.startsWith("/api/v1/notifications"))
+                && !gatewaySecret.equals(request.getHeader(GATEWAY_SECRET_HEADER))) {
             response.sendError(HttpServletResponse.SC_FORBIDDEN, "Requests to user APIs must pass through gateway.");
             return;
         }

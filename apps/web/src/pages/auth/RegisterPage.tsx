@@ -17,9 +17,9 @@ import {
 type RegisterMode = 'student' | 'instructor';
 
 const inputClasses =
-  'block w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-900 placeholder-gray-400 transition-colors focus:border-transparent focus:outline-none focus:ring-2 focus:ring-violet-500';
+  'block w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-violet-400 focus:ring-2 focus:ring-violet-100 placeholder-slate-400 text-slate-900';
 const inputWithIconClasses =
-  'block w-full rounded-lg border border-gray-300 py-3 pl-12 pr-4 text-gray-900 placeholder-gray-400 transition-colors focus:border-transparent focus:outline-none focus:ring-2 focus:ring-violet-500';
+  'block w-full rounded-xl border border-slate-200 bg-white py-3 pl-11 pr-4 text-sm outline-none transition focus:border-violet-400 focus:ring-2 focus:ring-violet-100 placeholder-slate-400 text-slate-900';
 
 export default function RegisterPage() {
   const { register, applyInstructor } = useAuth();
@@ -46,11 +46,14 @@ export default function RegisterPage() {
     if (password.length < 8) {
       return 'Mật khẩu phải có ít nhất 8 ký tự.';
     }
+    if (mode === 'instructor' && bio.trim().length < 50) {
+      return 'Bio giảng dạy cần ít nhất 50 ký tự để admin có đủ thông tin đánh giá.';
+    }
     return '';
   };
 
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (event: FormEvent) => {
+    event.preventDefault();
     setError('');
 
     const validationError = validateBase();
@@ -94,20 +97,22 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="w-full">
+    <div className="w-full animate-fade-up">
       <MobileLogo />
 
-      <div className="text-center mb-8">
-        <h2 className="text-3xl font-bold text-gray-900 mb-2">Tạo tài khoản</h2>
-        <p className="text-gray-500">Học viên có thể vào học ngay. Giáo viên cần admin phê duyệt hồ sơ.</p>
+      <div className="mb-8 text-center">
+        <h2 className="mb-2 text-3xl font-bold text-slate-900">Tạo tài khoản</h2>
+        <p className="text-slate-500">
+          Học viên có thể vào học ngay. Giáo viên cần phê duyệt.
+        </p>
       </div>
 
-      <div className="grid grid-cols-2 gap-2 rounded-xl bg-slate-100 p-1 mb-6">
+      <div className="mb-6 grid grid-cols-2 gap-2 rounded-xl bg-slate-100 p-1 shadow-inner">
         <button
           type="button"
           onClick={() => setMode('student')}
-          className={`flex items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium transition ${
-            mode === 'student' ? 'bg-white text-violet-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'
+          className={`flex items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-semibold transition ${
+            mode === 'student' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-900'
           }`}
         >
           <GraduationCap className="h-4 w-4" />
@@ -116,8 +121,8 @@ export default function RegisterPage() {
         <button
           type="button"
           onClick={() => setMode('instructor')}
-          className={`flex items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium transition ${
-            mode === 'instructor' ? 'bg-white text-violet-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'
+          className={`flex items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-semibold transition ${
+            mode === 'instructor' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-900'
           }`}
         >
           <BriefcaseBusiness className="h-4 w-4" />
@@ -127,62 +132,137 @@ export default function RegisterPage() {
 
       <form onSubmit={handleSubmit} className="space-y-5">
         {error && (
-          <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-600">
+          <div className="rounded-xl border border-rose-100 bg-rose-50 p-4 text-sm text-rose-600">
             {error}
           </div>
         )}
 
-        <Field label="Họ và tên" icon={<User className="h-5 w-5" />}>
-          <input value={fullName} onChange={(e) => setFullName(e.target.value)} required autoFocus placeholder="Nguyễn Văn A" className={inputWithIconClasses} />
+        <Field id="register-full-name" label="Họ và tên" icon={<User className="h-5 w-5" />}>
+          <input
+            id="register-full-name"
+            value={fullName}
+            onChange={(event) => setFullName(event.target.value)}
+            required
+            autoFocus
+            placeholder="Nguyễn Văn A"
+            className={inputWithIconClasses}
+          />
         </Field>
 
-        <Field label="Email" icon={<Mail className="h-5 w-5" />}>
-          <input value={email} onChange={(e) => setEmail(e.target.value)} required type="email" placeholder="you@example.com" className={inputWithIconClasses} />
+        <Field id="register-email" label="Email" icon={<Mail className="h-5 w-5" />}>
+          <input
+            id="register-email"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            required
+            type="email"
+            placeholder="you@example.com"
+            className={inputWithIconClasses}
+          />
         </Field>
 
         {mode === 'instructor' && (
           <div className="grid grid-cols-1 gap-5">
-            <Field label="Chức danh giới thiệu">
-              <input value={headline} onChange={(e) => setHeadline(e.target.value)} required placeholder="Senior Backend Engineer, Java Instructor" className={inputClasses} />
+            <Field id="instructor-headline" label="Chức danh giới thiệu">
+              <input
+                id="instructor-headline"
+                value={headline}
+                onChange={(event) => setHeadline(event.target.value)}
+                required
+                placeholder="Senior Backend Engineer, Java Instructor"
+                className={inputClasses}
+              />
             </Field>
-            <Field label="Chuyên môn">
-              <input value={expertise} onChange={(e) => setExpertise(e.target.value)} required placeholder="Java, Spring Boot, Microservices" className={inputClasses} />
+            <Field id="instructor-expertise" label="Chuyên môn">
+              <input
+                id="instructor-expertise"
+                value={expertise}
+                onChange={(event) => setExpertise(event.target.value)}
+                required
+                placeholder="Java, Spring Boot, Microservices"
+                className={inputClasses}
+              />
             </Field>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Field label="Số năm kinh nghiệm">
-                <input value={yearsExperience} onChange={(e) => setYearsExperience(e.target.value)} min={0} max={60} type="number" placeholder="5" className={inputClasses} />
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <Field id="instructor-years" label="Số năm kinh nghiệm">
+                <input
+                  id="instructor-years"
+                  value={yearsExperience}
+                  onChange={(event) => setYearsExperience(event.target.value)}
+                  min={0}
+                  max={60}
+                  type="number"
+                  placeholder="5"
+                  className={inputClasses}
+                />
               </Field>
-              <Field label="Website/LinkedIn">
-                <input value={website} onChange={(e) => setWebsite(e.target.value)} placeholder="https://..." className={inputClasses} />
+              <Field id="instructor-website" label="Website/LinkedIn">
+                <input
+                  id="instructor-website"
+                  value={website}
+                  onChange={(event) => setWebsite(event.target.value)}
+                  placeholder="https://..."
+                  className={inputClasses}
+                />
               </Field>
             </div>
-            <TextArea label="Bio giảng dạy" value={bio} onChange={setBio} required placeholder="Tóm tắt kinh nghiệm, phong cách giảng dạy, đối tượng học viên phù hợp." />
-            <TextArea label="Ghi chú cho admin" value={applicationNote} onChange={setApplicationNote} placeholder="Link portfolio, chứng chỉ, khóa học đã dạy..." />
+            <TextArea
+              id="instructor-bio"
+              label="Bio giảng dạy"
+              value={bio}
+              onChange={setBio}
+              required
+              minLength={50}
+              placeholder="Tóm tắt kinh nghiệm, phong cách giảng dạy, các chủ đề có thể dạy và đối tượng học viên phù hợp."
+            />
+            <TextArea
+              id="instructor-note"
+              label="Ghi chú cho admin"
+              value={applicationNote}
+              onChange={setApplicationNote}
+              placeholder="Link portfolio, chứng chỉ, khóa học đã dạy hoặc thông tin admin nên biết."
+            />
           </div>
         )}
 
-        <Field label="Mật khẩu" icon={<Lock className="h-5 w-5" />}>
-          <input value={password} onChange={(e) => setPassword(e.target.value)} required type="password" placeholder="Tối thiểu 8 ký tự" className={inputWithIconClasses} />
+        <Field id="register-password" label="Mật khẩu" icon={<Lock className="h-5 w-5" />}>
+          <input
+            id="register-password"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            required
+            type="password"
+            placeholder="Tối thiểu 8 ký tự"
+            className={inputWithIconClasses}
+          />
         </Field>
 
-        <Field label="Xác nhận mật khẩu" icon={<Lock className="h-5 w-5" />}>
-          <input value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required type="password" placeholder="Nhập lại mật khẩu" className={inputWithIconClasses} />
+        <Field id="register-confirm-password" label="Xác nhận mật khẩu" icon={<Lock className="h-5 w-5" />}>
+          <input
+            id="register-confirm-password"
+            value={confirmPassword}
+            onChange={(event) => setConfirmPassword(event.target.value)}
+            required
+            type="password"
+            placeholder="Nhập lại mật khẩu"
+            className={inputWithIconClasses}
+          />
         </Field>
 
-        <div className="rounded-lg border border-violet-100 bg-violet-50 px-4 py-3 text-sm text-violet-700">
+        <div className="rounded-xl border border-violet-100 bg-violet-50 px-4 py-3 text-sm text-violet-700">
           {mode === 'student'
             ? 'Tài khoản học viên sẽ được tạo và đăng nhập ngay.'
             : 'Tài khoản giáo viên chỉ đăng nhập được sau khi admin phê duyệt hồ sơ.'}
         </div>
 
-        <Button type="submit" className="w-full py-3.5 text-base font-medium" isLoading={isLoading}>
+        <Button type="submit" className="w-full py-3.5 text-base font-medium shadow-[0_8px_20px_-6px_rgba(124,58,237,0.5)] transition-shadow hover:shadow-[0_10px_24px_-6px_rgba(124,58,237,0.6)]" isLoading={isLoading}>
           {mode === 'student' ? 'Đăng ký học viên' : 'Gửi hồ sơ giáo viên'}
         </Button>
       </form>
 
-      <p className="text-center text-sm text-gray-500 mt-8 mb-12 lg:mb-16">
+      <p className="mb-12 mt-8 text-center text-sm text-slate-500 lg:mb-16">
         Đã có tài khoản?{' '}
-        <Link to="/login" className="font-semibold text-violet-600 hover:text-violet-700 transition-colors">
+        <Link to="/login" className="font-semibold text-violet-600 transition-colors hover:text-violet-700">
           Đăng nhập
         </Link>
       </p>
@@ -192,11 +272,11 @@ export default function RegisterPage() {
 
 function MobileLogo() {
   return (
-    <div className="lg:hidden flex items-center justify-center gap-3 mb-8">
-      <div className="w-12 h-12 rounded-2xl bg-gradient-brand flex items-center justify-center shadow-lg">
-        <GraduationCap className="w-6 h-6 text-white" />
+    <div className="mb-8 flex flex-col items-center justify-center gap-3 lg:hidden">
+      <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-violet-600 shadow-sm">
+        <GraduationCap className="h-6 w-6 text-white" />
       </div>
-      <span className="text-2xl font-bold bg-gradient-brand bg-clip-text text-transparent">
+      <span className="text-2xl font-bold text-violet-700">
         SageLMS
       </span>
     </div>
@@ -205,29 +285,41 @@ function MobileLogo() {
 
 function InstructorApplicationSubmitted({ email }: { email: string }) {
   return (
-    <div className="w-full">
+    <div className="w-full animate-fade-up">
       <MobileLogo />
 
       <div className="text-center">
-        <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-3xl bg-emerald-50 text-emerald-600 ring-1 ring-emerald-100">
+        <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-3xl bg-emerald-50 text-emerald-600 border border-emerald-100">
           <CheckCircle2 className="h-10 w-10" />
         </div>
-        <h2 className="text-3xl font-bold text-gray-900">Hồ sơ đã được gửi</h2>
-        <p className="mt-3 text-gray-500">
-          Chúng tôi đã nhận hồ sơ giáo viên của <span className="font-medium text-gray-700">{email}</span>.
+        <h2 className="text-3xl font-bold text-slate-900">Hồ sơ đã được gửi</h2>
+        <p className="mt-3 text-slate-500">
+          Chúng tôi đã nhận hồ sơ giáo viên của <span className="font-medium text-slate-700">{email}</span>.
           Tài khoản sẽ đăng nhập được sau khi admin phê duyệt.
         </p>
       </div>
 
-      <div className="mt-8 space-y-4 rounded-2xl border border-slate-200 bg-slate-50 p-5">
-        <Step icon={<MailCheck className="h-5 w-5" />} title="Hồ sơ đang chờ duyệt" description="Admin sẽ kiểm tra chuyên môn, bio và thông tin liên hệ của bạn." />
-        <Step icon={<Clock3 className="h-5 w-5" />} title="Thời gian phản hồi" description="Thông thường hồ sơ được xử lý trong 24-48 giờ làm việc." />
-        <Step icon={<CheckCircle2 className="h-5 w-5" />} title="Sau khi được duyệt" description="Bạn có thể đăng nhập và bắt đầu tạo khóa học trên SageLMS." />
+      <div className="mt-8 space-y-4 rounded-2xl border border-slate-200 bg-white shadow-sm p-5">
+        <Step
+          icon={<MailCheck className="h-5 w-5" />}
+          title="Hồ sơ đang chờ duyệt"
+          description="Admin sẽ kiểm tra chuyên môn, bio và thông tin liên hệ của bạn."
+        />
+        <Step
+          icon={<Clock3 className="h-5 w-5" />}
+          title="Thời gian phản hồi"
+          description="Thông thường hồ sơ được xử lý trong 24-48 giờ làm việc."
+        />
+        <Step
+          icon={<CheckCircle2 className="h-5 w-5" />}
+          title="Sau khi được duyệt"
+          description="Bạn có thể đăng nhập và bắt đầu tạo khóa học trên SageLMS."
+        />
       </div>
 
       <Link
         to="/login"
-        className="mt-8 inline-flex w-full items-center justify-center rounded-xl bg-gradient-brand px-5 py-3.5 text-base font-medium text-white shadow-lg shadow-violet-500/25 transition hover:shadow-xl hover:shadow-violet-500/30"
+        className="mt-8 inline-flex w-full items-center justify-center rounded-xl bg-violet-600 px-5 py-3 text-base font-semibold text-white shadow-sm transition hover:bg-violet-700 active:scale-95"
       >
         Về trang đăng nhập
       </Link>
@@ -237,8 +329,8 @@ function InstructorApplicationSubmitted({ email }: { email: string }) {
 
 function Step({ icon, title, description }: { icon: ReactNode; title: string; description: string }) {
   return (
-    <div className="flex gap-3">
-      <div className="mt-0.5 flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-white text-violet-600 ring-1 ring-slate-200">
+    <div className="flex gap-4">
+      <div className="mt-0.5 flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-slate-50 text-violet-600 border border-slate-100">
         {icon}
       </div>
       <div>
@@ -249,42 +341,52 @@ function Step({ icon, title, description }: { icon: ReactNode; title: string; de
   );
 }
 
-function Field({ label, icon, children }: { label: string; icon?: ReactNode; children: ReactNode }) {
+function Field({ id, label, icon, children }: { id: string; label: string; icon?: ReactNode; children: ReactNode }) {
   return (
-    <label className="block space-y-2">
-      <span className="block text-sm font-medium text-gray-700">{label}</span>
+    <div className="block space-y-2">
+      <label htmlFor={id} className="block text-sm font-medium text-slate-700">
+        {label}
+      </label>
       <span className="relative block">
-        {icon && <span className="absolute inset-y-0 left-0 flex items-center pl-4 text-gray-400">{icon}</span>}
+        {icon && <span className="absolute inset-y-0 left-0 flex items-center pl-4 text-slate-400">{icon}</span>}
         {children}
       </span>
-    </label>
+    </div>
   );
 }
 
 function TextArea({
+  id,
   label,
   value,
   onChange,
   placeholder,
   required = false,
+  minLength,
 }: {
+  id: string;
   label: string;
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
   required?: boolean;
+  minLength?: number;
 }) {
   return (
-    <label className="block space-y-2">
-      <span className="block text-sm font-medium text-gray-700">{label}</span>
+    <div className="block space-y-2">
+      <label htmlFor={id} className="block text-sm font-medium text-slate-700">
+        {label}
+      </label>
       <textarea
+        id={id}
         value={value}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={(event) => onChange(event.target.value)}
         required={required}
+        minLength={minLength}
         rows={4}
         placeholder={placeholder}
-        className="block w-full resize-none rounded-lg border border-gray-300 px-4 py-3 text-gray-900 placeholder-gray-400 transition-colors focus:border-transparent focus:outline-none focus:ring-2 focus:ring-violet-500"
+        className="block w-full resize-none rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-violet-400 focus:ring-2 focus:ring-violet-100 placeholder-slate-400 text-slate-900"
       />
-    </label>
+    </div>
   );
 }

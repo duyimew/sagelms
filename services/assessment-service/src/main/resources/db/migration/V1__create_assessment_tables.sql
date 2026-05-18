@@ -1,69 +1,77 @@
--- ============================================================
--- Assessment Schema — V1: quizzes, questions, choices, attempts, attempt_answers
--- ============================================================
+CREATE SCHEMA IF NOT EXISTS assessment;
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
--- 1. quizzes
-CREATE TABLE assessment.quizzes (
+CREATE TABLE assessment.assessments (
     id                 UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    course_id          UUID NOT NULL,  -- soft ref → course.courses
+    course_id          UUID NOT NULL,
     title              VARCHAR(255) NOT NULL,
     description        TEXT,
+    thumbnail_url      VARCHAR(1000),
+    category           VARCHAR(120),
+    status             VARCHAR(20) NOT NULL DEFAULT 'DRAFT'
+                       CHECK (status IN ('DRAFT', 'PUBLISHED', 'ARCHIVED')),
+    instructor_id      UUID NOT NULL,
     time_limit_minutes INTEGER,
     pass_score         DECIMAL(5,2) DEFAULT 50.00,
     max_attempts       INTEGER DEFAULT 1,
-    is_published       BOOLEAN DEFAULT FALSE,
     created_at         TIMESTAMPTZ DEFAULT NOW(),
     updated_at         TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 2. questions
-CREATE TABLE assessment.questions (
-    id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    quiz_id    UUID NOT NULL REFERENCES assessment.quizzes(id) ON DELETE CASCADE,
-    text       TEXT NOT NULL,
-    type       VARCHAR(20) DEFAULT 'SINGLE_CHOICE'
-               CHECK (type IN ('SINGLE_CHOICE', 'TRUE_FALSE')),
-    points     DECIMAL(5,2) DEFAULT 1.00,
-    sort_order INTEGER DEFAULT 0,
-    created_at TIMESTAMPTZ DEFAULT NOW()
+CREATE TABLE assessment.assessment_questions (
+    id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    assessment_id UUID NOT NULL REFERENCES assessment.assessments(id) ON DELETE CASCADE,
+    title         VARCHAR(255),
+    prompt        TEXT NOT NULL,
+    type          VARCHAR(20) NOT NULL DEFAULT 'MULTIPLE_CHOICE'
+                  CHECK (type IN ('MULTIPLE_CHOICE', 'ESSAY')),
+    media_type    VARCHAR(20) DEFAULT 'NONE'
+                  CHECK (media_type IN ('NONE', 'IMAGE', 'VIDEO')),
+    media_url     VARCHAR(1000),
+    points        DECIMAL(5,2) DEFAULT 1.00,
+    sort_order    INTEGER DEFAULT 0,
+    created_at    TIMESTAMPTZ DEFAULT NOW(),
+    updated_at    TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 3. choices
-CREATE TABLE assessment.choices (
+CREATE TABLE assessment.assessment_choices (
     id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    question_id UUID NOT NULL REFERENCES assessment.questions(id) ON DELETE CASCADE,
+    question_id UUID NOT NULL REFERENCES assessment.assessment_questions(id) ON DELETE CASCADE,
     text        VARCHAR(500) NOT NULL,
     is_correct  BOOLEAN DEFAULT FALSE,
     sort_order  INTEGER DEFAULT 0
 );
 
--- 4. attempts
-CREATE TABLE assessment.attempts (
-    id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    quiz_id      UUID NOT NULL REFERENCES assessment.quizzes(id),
-    student_id   UUID NOT NULL,  -- soft ref → auth.users
-    score        DECIMAL(5,2),
-    max_score    DECIMAL(5,2),
-    passed       BOOLEAN,
-    started_at   TIMESTAMPTZ DEFAULT NOW(),
-    submitted_at TIMESTAMPTZ
+CREATE TABLE assessment.assessment_attempts (
+    id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    assessment_id  UUID NOT NULL REFERENCES assessment.assessments(id) ON DELETE CASCADE,
+    participant_id UUID NOT NULL,
+    score          DECIMAL(5,2),
+    max_score      DECIMAL(5,2),
+    passed         BOOLEAN,
+    started_at     TIMESTAMPTZ DEFAULT NOW(),
+    submitted_at   TIMESTAMPTZ
 );
 
--- 5. attempt_answers
-CREATE TABLE assessment.attempt_answers (
+CREATE TABLE assessment.assessment_answers (
     id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    attempt_id  UUID NOT NULL REFERENCES assessment.attempts(id) ON DELETE CASCADE,
-    question_id UUID NOT NULL REFERENCES assessment.questions(id),
-    choice_id   UUID NOT NULL REFERENCES assessment.choices(id),
-    is_correct  BOOLEAN,  -- snapshot at submit time
-    CONSTRAINT uq_attempt_question UNIQUE (attempt_id, question_id)
+    attempt_id  UUID NOT NULL REFERENCES assessment.assessment_attempts(id) ON DELETE CASCADE,
+    question_id UUID NOT NULL REFERENCES assessment.assessment_questions(id),
+    choice_id   UUID REFERENCES assessment.assessment_choices(id),
+    text_answer TEXT,
+    file_name   VARCHAR(500),
+    file_type   VARCHAR(200),
+    file_size   BIGINT,
+    file_url    VARCHAR(1000),
+    is_correct  BOOLEAN,
+    CONSTRAINT uq_assessment_attempt_question UNIQUE (attempt_id, question_id)
 );
 
--- Indexes
-CREATE INDEX idx_quizzes_course ON assessment.quizzes (course_id);
-CREATE INDEX idx_questions_quiz ON assessment.questions (quiz_id);
-CREATE INDEX idx_choices_question ON assessment.choices (question_id);
-CREATE INDEX idx_attempts_quiz ON assessment.attempts (quiz_id);
-CREATE INDEX idx_attempts_student ON assessment.attempts (student_id);
-CREATE INDEX idx_answers_attempt ON assessment.attempt_answers (attempt_id);
-CREATE INDEX idx_answers_question ON assessment.attempt_answers (question_id);
+CREATE INDEX idx_assessments_course ON assessment.assessments (course_id);
+CREATE INDEX idx_assessments_instructor ON assessment.assessments (instructor_id);
+CREATE INDEX idx_assessments_status ON assessment.assessments (status);
+CREATE INDEX idx_assessment_questions_assessment ON assessment.assessment_questions (assessment_id);
+CREATE INDEX idx_assessment_choices_question ON assessment.assessment_choices (question_id);
+CREATE INDEX idx_assessment_attempts_assessment ON assessment.assessment_attempts (assessment_id);
+CREATE INDEX idx_assessment_attempts_participant ON assessment.assessment_attempts (participant_id);
+CREATE INDEX idx_assessment_answers_attempt ON assessment.assessment_answers (attempt_id);

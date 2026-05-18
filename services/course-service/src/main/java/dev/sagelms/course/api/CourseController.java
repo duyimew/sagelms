@@ -35,20 +35,21 @@ public class CourseController {
             @RequestParam(required = false) String status,
             @RequestParam(required = false) String category,
             @RequestParam(required = false) String search,
+            @RequestParam(required = false, defaultValue = "teaching") String scope,
             @RequestHeader(value = USER_ID_HEADER, required = false) UUID userId,
             @RequestHeader(value = ROLES_HEADER, required = false) String roles
     ) {
         // Priority: search > status > category > role-aware default
         if (search != null && !search.isBlank()) {
-            return ResponseEntity.ok(courseService.searchCoursesForViewer(search, roles, pageable));
+            return ResponseEntity.ok(courseService.searchCoursesForViewer(search, userId, roles, scope, pageable));
         }
         if (status != null && !status.isBlank()) {
-            return ResponseEntity.ok(courseService.getCoursesByStatusForViewer(status, roles, pageable));
+            return ResponseEntity.ok(courseService.getCoursesByStatusForViewer(status, userId, roles, scope, pageable));
         }
         if (category != null && !category.isBlank()) {
-            return ResponseEntity.ok(courseService.getCoursesByCategory(category, roles, pageable));
+            return ResponseEntity.ok(courseService.getCoursesByCategory(category, userId, roles, scope, pageable));
         }
-        return ResponseEntity.ok(courseService.getCoursesForViewer(roles, pageable));
+        return ResponseEntity.ok(courseService.getCoursesForViewer(userId, roles, scope, pageable));
     }
 
     /**
@@ -129,7 +130,8 @@ public class CourseController {
     @GetMapping("/category/{category}")
     public ResponseEntity<List<CourseResponse>> getCoursesByCategory(
             @PathVariable String category,
+            @RequestHeader(value = USER_ID_HEADER, required = false) UUID userId,
             @RequestHeader(value = ROLES_HEADER, required = false) String roles) {
-        return ResponseEntity.ok(courseService.getCoursesByCategoryForViewer(category, roles));
+        return ResponseEntity.ok(courseService.getCoursesByCategoryForViewer(category, userId, roles));
     }
 }

@@ -1,15 +1,16 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
-  LayoutDashboard,
-  BookOpen,
-  ClipboardList,
   Bot,
-  Users,
+  BookOpen,
   ChevronLeft,
   ChevronRight,
-  LogOut,
+  ClipboardList,
   GraduationCap,
+  LayoutDashboard,
+  LogOut,
+  UserCog,
+  Users,
 } from 'lucide-react';
 
 const navigation = [
@@ -26,8 +27,8 @@ const navigation = [
     roles: ['ADMIN', 'INSTRUCTOR', 'STUDENT'],
   },
   {
-    name: 'Bài kiểm tra',
-    path: '/quizzes',
+    name: 'Thử thách',
+    path: '/challenges',
     icon: ClipboardList,
     roles: ['ADMIN', 'INSTRUCTOR', 'STUDENT'],
   },
@@ -38,7 +39,19 @@ const navigation = [
     roles: ['ADMIN', 'INSTRUCTOR', 'STUDENT'],
   },
   {
-    name: 'Duyệt giáo viên',
+    name: 'Quản lý user',
+    path: '/admin/users',
+    icon: UserCog,
+    roles: ['ADMIN'],
+  },
+  {
+    name: 'Quản lý khóa học',
+    path: '/admin/courses',
+    icon: BookOpen,
+    roles: ['ADMIN'],
+  },
+  {
+    name: 'Duyệt giảng viên',
     path: '/admin/instructors',
     icon: Users,
     roles: ['ADMIN'],
@@ -66,21 +79,21 @@ export default function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
   return (
     <aside
       className={`
-        fixed left-0 top-0 z-40 h-screen bg-white border-r border-slate-200
-        transition-all duration-300 flex flex-col shadow-xl
+        fixed left-0 top-0 z-40 h-screen bg-white/70 backdrop-blur-2xl border-r border-white/50
+        transition-all duration-300 flex flex-col shadow-[4px_0_24px_rgba(0,0,0,0.02)] ring-1 ring-slate-100/50
         ${isCollapsed ? 'w-20' : 'w-64'}
       `}
     >
-      <div className="h-20 flex items-center gap-3 px-4 border-b border-slate-100">
-        <div className="w-10 h-10 rounded-xl bg-gradient-brand flex items-center justify-center shadow-lg shadow-violet-500/20">
+      <div className="h-16 flex items-center gap-3 px-4 border-b border-slate-100">
+        <div className="w-10 h-10 rounded-xl bg-violet-600 flex items-center justify-center shadow-sm">
           <GraduationCap className="w-6 h-6 text-white" />
         </div>
         {!isCollapsed && (
           <div className="flex flex-col">
-            <span className="text-lg font-bold bg-gradient-brand bg-clip-text text-transparent">
+            <span className="text-lg font-bold text-violet-700">
               SageLMS
             </span>
-            <span className="text-xs text-slate-400">Learning Platform</span>
+            <span className="text-xs font-medium text-slate-400">Learning Platform</span>
           </div>
         )}
       </div>
@@ -143,3 +156,4 @@ export default function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
     </aside>
   );
 }
+

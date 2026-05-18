@@ -23,6 +23,7 @@ public class RbacFilter implements GlobalFilter, Ordered {
     private static final List<String> ADMIN = List.of("ADMIN");
     private static final List<String> INSTRUCTOR_OR_ADMIN = List.of("INSTRUCTOR", "ADMIN");
     private static final List<String> STUDENT = List.of("STUDENT");
+    private static final List<String> LEARNER = List.of("STUDENT", "INSTRUCTOR");
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
@@ -47,6 +48,10 @@ public class RbacFilter implements GlobalFilter, Ordered {
     }
 
     private List<String> requiredRoles(HttpMethod method, String path) {
+        if (path.equals("/api/v1/users/public-profiles") && method == HttpMethod.GET) {
+            return null;
+        }
+
         if (path.startsWith("/api/v1/users")) {
             return ADMIN;
         }
@@ -57,15 +62,19 @@ public class RbacFilter implements GlobalFilter, Ordered {
 
         if (path.matches("^/api/v1/courses/[^/]+/enroll$")) {
             if (method == HttpMethod.POST || method == HttpMethod.DELETE) {
-                return STUDENT;
+                return LEARNER;
             }
         }
 
         if (path.matches("^/api/v1/courses/[^/]+/complete$") && method == HttpMethod.POST) {
-            return STUDENT;
+            return LEARNER;
         }
 
-        if (isCourseMutation(method, path) || isLessonMutation(method, path)) {
+        if (isChallengeReview(method, path)) {
+            return INSTRUCTOR_OR_ADMIN;
+        }
+
+        if (isCourseMutation(method, path) || isLessonMutation(method, path) || isChallengeManagement(method, path)) {
             return INSTRUCTOR_OR_ADMIN;
         }
 
@@ -88,6 +97,28 @@ public class RbacFilter implements GlobalFilter, Ordered {
         }
         return method == HttpMethod.POST || method == HttpMethod.PUT
                 || method == HttpMethod.DELETE || method == HttpMethod.PATCH;
+    }
+
+    private boolean isChallengeManagement(HttpMethod method, String path) {
+        boolean challengePath = path.startsWith("/api/v1/challenges") || path.startsWith("/api/v1/question-sets");
+        if (!challengePath) {
+            return false;
+        }
+        if (path.matches("^/api/v1/challenges/[^/]+/attempts$")) {
+            return false;
+        }
+        return method == HttpMethod.POST || method == HttpMethod.PUT
+                || method == HttpMethod.DELETE || method == HttpMethod.PATCH;
+    }
+
+    private boolean isChallengeReview(HttpMethod method, String path) {
+        if (path.matches("^/api/v1/challenge-attempts/[^/]+/review$") && method == HttpMethod.GET) {
+            return true;
+        }
+        if (path.matches("^/api/v1/challenge-attempts/[^/]+/grade$") && method == HttpMethod.PUT) {
+            return true;
+        }
+        return path.matches("^/api/v1/challenge-attempts/[^/]+$") && method == HttpMethod.DELETE;
     }
 
     private Mono<Void> forbidden(ServerWebExchange exchange) {
