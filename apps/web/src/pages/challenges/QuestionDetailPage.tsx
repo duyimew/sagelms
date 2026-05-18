@@ -21,6 +21,7 @@ import {
   Image as ImageIcon,
   ListChecks,
   Plus,
+  X,
   Save,
   Trash2,
   Upload,
@@ -224,6 +225,7 @@ export default function QuestionPage() {
   const [questionSet, setQuestionSet] = useState<ChallengeQuestionSet | null>(null);
   const [setTitle, setSetTitle] = useState('');
   const [setTimeLimit, setSetTimeLimit] = useState<number | ''>('');
+  const [setMaxAttempts, setSetMaxAttempts] = useState<number | ''>('');
   const [drafts, setDrafts] = useState<QuestionDraft[]>([]);
   const [activeLocalId, setActiveLocalId] = useState('');
   const [pendingDraft, setPendingDraft] = useState<PendingDraft | null>(null);
@@ -260,6 +262,7 @@ export default function QuestionPage() {
           setQuestionSet(null);
           setSetTitle('');
           setSetTimeLimit('');
+          setSetMaxAttempts('');
           const blank = createBlankDraft();
           setDrafts([]);
           setActiveLocalId(blank.localId);
@@ -279,6 +282,7 @@ export default function QuestionPage() {
         setQuestionSet(setDetail.questionSet);
         setSetTitle(setDetail.questionSet.title);
         setSetTimeLimit(setDetail.questionSet.timeLimitMinutes ?? '');
+        setSetMaxAttempts(setDetail.questionSet.maxAttempts ?? '');
         setDrafts(loadedDrafts);
         setActiveLocalId(targetDraft.localId);
         setPendingDraft(loadedDrafts.length > 0 ? null : { draft: targetDraft, insertIndex: 0, edge: 'after' });
@@ -526,6 +530,7 @@ export default function QuestionPage() {
       const setPayload = {
         title: setTitle.trim(),
         timeLimitMinutes: setTimeLimit === '' ? null : Number(setTimeLimit),
+        maxAttempts: setMaxAttempts === '' ? null : Number(setMaxAttempts),
         sortOrder: questionSet?.sortOrder ?? 0,
       };
       const savedSet = questionSet
@@ -611,25 +616,25 @@ export default function QuestionPage() {
           />
           <Button type="button" variant="secondary" onClick={() => setShowImportGuide(true)} disabled={saving}>
             <HelpCircle className="mr-2 h-4 w-4" />
-            Hướng dẫn JSON
+            Hướng dẫn
           </Button>
           <Button type="button" variant="secondary" onClick={() => importInputRef.current?.click()} disabled={saving}>
             <Upload className="mr-2 h-4 w-4" />
-            Import JSON
+            Import
           </Button>
-          <Button type="button" variant="secondary" onClick={handleDeleteQuestionSet} disabled={saving}>
+          <Button type="button" variant="danger" onClick={handleDeleteQuestionSet} disabled={saving}>
             <Trash2 className="mr-2 h-4 w-4" />
-            Xóa tập câu hỏi
+            Xóa
           </Button>
           <Button type="button" onClick={handleSaveQuestionSet} isLoading={saving}>
             <Save className="mr-2 h-4 w-4" />
-            Lưu tập câu hỏi
+            Lưu
           </Button>
         </div>
       </div>
 
       <Card>
-        <CardBody className="grid gap-4 md:grid-cols-[1fr_220px] md:items-end">
+        <CardBody className="grid gap-4 md:grid-cols-[1fr_200px_200px] md:items-end">
           <div>
             <label className="mb-2 block text-sm font-medium text-slate-700">Tiêu đề tập câu hỏi</label>
             <input
@@ -645,7 +650,19 @@ export default function QuestionPage() {
               type="number"
               min={0}
               value={setTimeLimit}
+              placeholder="0 giới hạn"
               onChange={(event) => setSetTimeLimit(event.target.value === '' ? '' : Number(event.target.value))}
+              className="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20"
+            />
+          </div>
+          <div>
+            <label className="mb-2 block text-sm font-medium text-slate-700">Số lượt làm</label>
+            <input
+              type="number"
+              min={0}
+              value={setMaxAttempts}
+              placeholder="1 lần"
+              onChange={(event) => setSetMaxAttempts(event.target.value === '' ? '' : Number(event.target.value))}
               className="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20"
             />
           </div>
@@ -868,13 +885,10 @@ export default function QuestionPage() {
                   }}
                   className={`rounded-xl border p-3 text-left transition hover:border-violet-200 hover:bg-violet-50/50 ${draggingLocalId === draft.localId ? 'opacity-60 ring-2 ring-violet-200' : ''} ${draft.localId === activeLocalId ? 'border-violet-300 bg-violet-50' : 'border-slate-100 bg-white'}`}
                 >
-                  <div className="mb-2 flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2 text-sm font-semibold text-slate-800">
-                        <GripVertical className="h-4 w-4 text-slate-300" />
-                        Câu {index + 1}
-                      </div>
-                      <p className="line-clamp-2 text-sm text-slate-500">{draft.prompt || 'Câu hỏi chưa có nội dung'}</p>
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 text-sm font-semibold text-slate-800">
+                      <GripVertical className="h-4 w-4 text-slate-300" />
+                      Câu {index + 1}
                     </div>
                     <div className="flex shrink-0 items-center gap-1">
                       <button
@@ -911,6 +925,9 @@ export default function QuestionPage() {
                       </button>
                     </div>
                   </div>
+                  <p className="my-2 text-sm text-slate-500 line-clamp-2 break-words">
+                    {draft.prompt || 'Câu hỏi chưa có nội dung'}
+                  </p>
                   <div className="flex flex-wrap gap-2">
                     <Badge variant={draft.type === 'ESSAY' ? 'info' : 'brand'}>
                       {draft.type === 'ESSAY' ? 'Tự luận' : 'Trắc nghiệm'}
@@ -943,7 +960,7 @@ export default function QuestionPage() {
                 className="rounded-xl p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
               >
                 <span className="sr-only">Đóng</span>
-                ×
+                <X className="h-4 w-4" />
               </button>
             </div>
 
