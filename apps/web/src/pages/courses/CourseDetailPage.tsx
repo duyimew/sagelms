@@ -101,28 +101,27 @@ function ParticipantRow({
   const canDrop = enrollment.status !== 'DROPPED';
 
   return (
-    <div className="stagger-enter flex items-start gap-3 p-4 transition-colors hover:bg-slate-50">
+    <div className="stagger-enter flex items-start gap-2 p-2 rounded-xl transition-colors hover:bg-slate-100">
       <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet-100 text-sm font-bold text-violet-700">
         {displayName.charAt(0).toUpperCase()}
       </div>
-      <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-center gap-2">
-          <p className="truncate font-medium text-slate-800">{displayName}</p>
+      <div className="min-w-0 flex-1 ml-2">
+        <p className="truncate font-medium text-slate-800">{displayName}</p>
+        <div className="space-y-1 text-sm text-slate-500">
+          {enrollment.studentEmail && (
+            <span className="flex items-center gap-2">
+              <Mail className="h-3.5 w-3.5" />
+              {enrollment.studentEmail}
+            </span>
+          )}
+        </div>
+        <div className="mt-2 flex flex-wrap items-center gap-2">
           <Badge variant={getParticipantRoleVariant(enrollment.studentRole)}>
             {getParticipantRoleLabel(enrollment.studentRole)}
           </Badge>
           <Badge variant={getEnrollmentStatusVariant(enrollment.status)}>
             {getEnrollmentStatusLabel(enrollment.status)}
           </Badge>
-        </div>
-        <div className="mt-1 space-y-1 text-sm text-slate-500">
-          {enrollment.studentEmail && (
-            <span className="flex items-center gap-1">
-              <Mail className="h-3.5 w-3.5" />
-              {enrollment.studentEmail}
-            </span>
-          )}
-          <span>Đăng ký: {new Date(enrollment.enrolledAt).toLocaleDateString('vi-VN')}</span>
         </div>
       </div>
       {enrollment.reviewNote && (
@@ -353,7 +352,7 @@ function InstructorProfileModal({
           </button>
         </div>
 
-        <div className="space-y-5 p-6">
+        <div className="space-y-6 p-4">
           <div className="flex flex-wrap gap-3 text-sm text-slate-600">
             {course.instructorEmail && (
               <span className="inline-flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-2">
@@ -764,7 +763,7 @@ export default function CourseDetailPage() {
 
   const handleStartAssessmentQuestionSet = async (assessment: Assessment, questionSet: AssessmentQuestionSet) => {
     if (!id) return;
-    const maxAttempts = Math.max(1, assessment.maxAttempts || 1);
+    const maxAttempts = Math.max(1, questionSet.maxAttempts || assessment.maxAttempts || 1);
     if (questionSet.attemptCount >= maxAttempts) {
       showToast('Bạn đã hết lượt làm bài kiểm tra này.', 'warning');
       return;
@@ -774,7 +773,7 @@ export default function CourseDetailPage() {
       title: questionSet.timeLimitMinutes ? 'Bắt đầu bài làm có giới hạn thời gian' : 'Bắt đầu bài làm',
       message: questionSet.timeLimitMinutes
         ? `Bạn có ${questionSet.timeLimitMinutes} phút để hoàn thành phần này.`
-        : 'Hệ thống sẽ tạo một lượt làm bài mới cho phần này.',
+        : 'Sau khi bắt đầu, hệ thống sẽ tạo một lượt làm bài cho phần này.',
       confirmLabel: questionSet.completed ? 'Làm lại' : 'Bắt đầu',
       cancelLabel: 'Hủy',
       variant: 'default',
@@ -894,7 +893,7 @@ export default function CourseDetailPage() {
         <div className="lg:col-span-2 space-y-6">
           {/* Description */}
           <Card>
-            <CardBody className="p-2">
+            <CardBody>
               <h2 className="text-lg font-bold text-slate-800 mb-2">Mô tả khoá học</h2>
               <p className="text-slate-600 leading-relaxed">{course.description}</p>
             </CardBody>
@@ -902,8 +901,8 @@ export default function CourseDetailPage() {
 
           {/* Lessons */}
           <Card>
-            <CardBody className="p-0">
-              <div className="p-2 mb-4 border-b border-slate-100 flex items-center justify-between">
+            <CardBody>
+              <div className="border-b pb-4 border-slate-100 flex items-center justify-between">
                 <h2 className="text-lg font-bold text-slate-800">
                   Nội dung khoá học
                   <span className="ml-2 text-sm font-normal text-slate-500">
@@ -922,7 +921,7 @@ export default function CourseDetailPage() {
               </div>
 
               {lessonsLoading ? (
-                <div className="p-6 space-y-4">
+                <div className="flex flex-col gap-2">
                   {[1, 2, 3].map((i) => (
                     <div key={i} className="h-16 skeleton rounded-xl" />
                   ))}
@@ -933,14 +932,14 @@ export default function CourseDetailPage() {
                     <button
                       key={lesson.id}
                       onClick={() => handleLessonClick(lesson.id)}
-                      className="stagger-enter pressable w-full p-4 flex items-center gap-4 hover:bg-slate-50 transition-colors text-left"
+                      className="stagger-enter pressable w-full p-4 rounded-2xl flex items-center gap-4 hover:bg-slate-100 transition-colors text-left"
                       style={{ '--stagger-delay': `${Math.min(index * 40, 400)}ms` } as CSSProperties}
                     >
                       <div className="w-10 h-10 rounded-xl bg-violet-100 text-violet-600 flex items-center justify-center">
                         {getLessonIcon(lesson.type)}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <h3 className="font-medium text-slate-800 truncate">{lesson.title}</h3>
+                        <h3 className="font-medium text-slate-800 truncate">Bài {index + 1}: {lesson.title}</h3>
                         <div className="flex items-center gap-3 text-sm text-slate-500">
                           <span className="capitalize">{lesson.type.toLowerCase()}</span>
                           {lesson.durationMinutes && (
@@ -1040,7 +1039,7 @@ export default function CourseDetailPage() {
                   {canManageCourse && assessmentTab === 'questions' && (
                     <Button size="sm" onClick={handleAddAssessmentQuestionSet} isLoading={creatingAssessment}>
                       <Plus className="w-4 h-4 mr-2" />
-                      Thêm bài kiểm tra
+                      Thêm bài tập
                     </Button>
                   )}
                 </div>
@@ -1050,8 +1049,8 @@ export default function CourseDetailPage() {
 
           {(canManageCourse || isEnrolled) && assessmentTab === 'questions' && (
             <Card className="!mt-0 rounded-t-none">
-              <CardBody className="p-0">
-                <div className="p-2 mb-4 border-b border-slate-100 flex items-center justify-between">
+              <CardBody>
+                <div className="pb-4 border-b border-slate-100 flex items-center justify-between">
                   <h2 className="text-lg font-bold text-slate-800">
                     Bài kiểm tra
                     <span className="ml-2 text-sm font-normal text-slate-500">
@@ -1061,11 +1060,20 @@ export default function CourseDetailPage() {
                 </div>
 
                 {assessmentQuestionSets.length > 0 ? (
-                  <div className="divide-y divide-slate-100">
+                  <div className="flex flex-col gap-2">
                     {assessmentQuestionSets.map(({ assessment, questionSet }, index) => (
                       <div
                         key={`${assessment.id}:${questionSet.id}`}
-                        className="pressable flex w-full flex-col gap-4 p-4 text-left transition-colors hover:bg-slate-50 md:flex-row md:items-center"
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => handleStartAssessmentQuestionSet(assessment, questionSet)}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter' || event.key === ' ') {
+                            event.preventDefault();
+                            handleStartAssessmentQuestionSet(assessment, questionSet);
+                          }
+                        }}
+                        className="pressable flex w-full cursor-pointer flex-col gap-4 p-4 rounded-2xl text-left transition-colors hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-violet-500/30 md:flex-row md:items-center"
                       >
                         <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-100 text-violet-600">
                           <FileText className="h-5 w-5" />
@@ -1081,14 +1089,20 @@ export default function CourseDetailPage() {
                         {canManageCourse ? (
                           <Button
                             variant="secondary"
-                            onClick={() => navigate(`/courses/${id}/assessments/${assessment.id}/question-sets/${questionSet.id}`)}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              navigate(`/courses/${id}/assessments/${assessment.id}/question-sets/${questionSet.id}`);
+                            }}
                           >
                             <Edit className="mr-2 h-4 w-4" />
                             Quản lý
                           </Button>
-                        ) : questionSet.attemptCount < Math.max(1, assessment.maxAttempts || 1) ? (
+                        ) : questionSet.attemptCount < Math.max(1, questionSet.maxAttempts || assessment.maxAttempts || 1) ? (
                           <Button
-                            onClick={() => handleStartAssessmentQuestionSet(assessment, questionSet)}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              handleStartAssessmentQuestionSet(assessment, questionSet);
+                            }}
                             isLoading={assessmentAttemptLoading}
                           >
                             <PlayCircle className="mr-2 h-4 w-4" />
@@ -1097,7 +1111,8 @@ export default function CourseDetailPage() {
                         ) : (
                           <Button
                             variant="secondary"
-                            onClick={() => {
+                            onClick={(event) => {
+                              event.stopPropagation();
                               if (questionSet.latestSubmittedAttemptId) {
                                 navigate(`/courses/${id}/assessments/${assessment.id}/result/${questionSet.latestSubmittedAttemptId}`);
                               }
@@ -1143,7 +1158,7 @@ export default function CourseDetailPage() {
         <div className="space-y-6">
           {/* Enrollment Card */}
           <Card>
-            <CardBody className="space-y-4">
+            <CardBody className="space-y-3">
               <div className="flex items-center justify-between text-sm text-slate-500">
                 <div className="flex items-center gap-2">
                   <Users className="w-4 h-4" />
@@ -1196,7 +1211,7 @@ export default function CourseDetailPage() {
                     <span className="font-medium">Bạn là giảng viên của khoá học này</span>
                   </div>
                   <Button className="w-full" onClick={() => setShowCourseForm(true)}>
-                    <Plus className="w-4 h-4 mr-2" />
+                    <Plus className="w-4 h-4" />
                     Chỉnh sửa khoá học
                   </Button>
                 </div>
@@ -1213,10 +1228,10 @@ export default function CourseDetailPage() {
 
           {canManageCourse && (
             <Card>
-              <CardBody className="p-0">
-                <div className="border-b border-slate-100 p-5">
+              <CardBody>
+                <div className="border-b border-slate-100">
                   <h2 className="text-lg font-bold text-slate-800">Người tham gia khóa học</h2>
-                  <p className="mt-1 text-sm text-slate-500">
+                  <p className="mt-1 mb-2 text-sm text-slate-500">
                     Bao gồm học viên và giảng viên khác đã đăng ký học khóa này.
                   </p>
                 </div>
