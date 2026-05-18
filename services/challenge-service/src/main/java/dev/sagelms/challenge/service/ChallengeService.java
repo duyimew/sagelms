@@ -223,7 +223,7 @@ public class ChallengeService {
         long submittedAttempts = attemptRepository.countByQuestionSetIdAndParticipantIdAndSubmittedAtIsNotNull(
                 questionSetId,
                 participantId);
-        int maxAttempts = normalizedMaxAttempts(challenge);
+        int maxAttempts = normalizedMaxAttempts(questionSet);
         if (submittedAttempts >= maxAttempts) {
             throw new ValidationException("You have already submitted this challenge attempt.");
         }
@@ -606,6 +606,7 @@ public class ChallengeService {
         questionSet.setTitle(request.title());
         questionSet.setTimeLimitMinutes(request.timeLimitMinutes());
         questionSet.setSortOrder(request.sortOrder() != null ? request.sortOrder() : 0);
+        questionSet.setMaxAttempts(request.maxAttempts() != null && request.maxAttempts() > 0 ? request.maxAttempts() : null);
     }
 
     private void applyQuestionRequest(ChallengeQuestion question, ChallengeQuestionRequest request) {
@@ -740,6 +741,7 @@ public class ChallengeService {
         questionSet.setChallenge(challenge);
         questionSet.setTitle("Tap cau hoi mac dinh");
         questionSet.setTimeLimitMinutes(challenge.getTimeLimitMinutes());
+        questionSet.setMaxAttempts(challenge.getMaxAttempts());
         questionSet.setSortOrder(0);
         return questionSetRepository.save(questionSet);
     }
@@ -749,9 +751,13 @@ public class ChallengeService {
                 .orElseGet(() -> createDefaultQuestionSet(challenge));
     }
 
-    private int normalizedMaxAttempts(Challenge challenge) {
-        Integer maxAttempts = challenge.getMaxAttempts();
-        return maxAttempts != null && maxAttempts > 0 ? maxAttempts : 1;
+    private int normalizedMaxAttempts(ChallengeQuestionSet questionSet) {
+        Integer maxAttempts = questionSet.getMaxAttempts();
+        if (maxAttempts != null && maxAttempts > 0) {
+            return maxAttempts;
+        }
+        Integer challengeMaxAttempts = questionSet.getChallenge().getMaxAttempts();
+        return challengeMaxAttempts != null && challengeMaxAttempts > 0 ? challengeMaxAttempts : 1;
     }
 
     private String normalizeFilterValue(String value) {
