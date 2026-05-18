@@ -1,4 +1,4 @@
-name: CI (PR)
+name: PR Validation (Hybrid)
 
 on:
   pull_request:
@@ -102,14 +102,14 @@ jobs:
           npx commitlint --from "$BASE" --to "$HEAD" --verbose
 
   # --------------------------------------------------
-  # Path filter — detect which services changed
+  # Path filter — detect which areas changed
   # --------------------------------------------------
   changes:
     runs-on: ubuntu-latest
     outputs:
       java: ${{ steps.filter.outputs.java }}
       frontend: ${{ steps.filter.outputs.frontend }}
-      python: ${{ steps.filter.outputs.python }}
+      infra: ${{ steps.filter.outputs.infra }}
       docker: ${{ steps.filter.outputs.docker }}
     steps:
       - uses: actions/checkout@v4
@@ -127,15 +127,18 @@ jobs:
               - 'services/worker/**'
             frontend:
               - 'apps/web/**'
-            python:
-              - 'services/ai-tutor-service/**'
+            infra:
+              - 'infra/**'
+              - '.github/workflows/**'
             docker:
               - 'services/gateway/Dockerfile'
               - 'services/auth-service/Dockerfile'
+              - 'services/course-service/Dockerfile'
+              - 'services/content-service/Dockerfile'
               - 'infra/docker/**'
 
   # --------------------------------------------------
-  # Unit tests — Java services (matrix)
+  # Java services — unit tests
   # --------------------------------------------------
   test_java:
     needs: changes
@@ -168,6 +171,44 @@ jobs:
             chmod +x mvnw && ./mvnw -B test --no-transfer-progress
           else
             mvn -B test --no-transfer-progress
+          fi
+
+  # --------------------------------------------------
+  # Java services — package smoke build
+  # --------------------------------------------------
+  build_java:
+    needs:
+      - changes
+      - test_java
+    if: needs.changes.outputs.java == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service:
+          - gateway
+          - auth-service
+          - course-service
+          - content-service
+          - progress-service
+          - assessment-service
+          - worker
+    defaults:
+      run:
+        working-directory: services/${{ matrix.service }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+          cache: maven
+      - name: Package service without tests
+        run: |
+          if [ -f mvnw ]; then
+            chmod +x mvnw && ./mvnw -B package -DskipTests --no-transfer-progress
+          else
+            mvn -B package -DskipTests --no-transfer-progress
           fi
 
   # --------------------------------------------------
@@ -213,27 +254,6 @@ jobs:
       - run: npm run typecheck
 
   # --------------------------------------------------
-  # Frontend — Production Build
-  # --------------------------------------------------
-  build_frontend:
-    name: "Frontend: Build"
-    needs: changes
-    if: needs.changes.outputs.frontend == 'true'
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: apps/web
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-          cache-dependency-path: apps/web/package-lock.json
-      - run: npm ci --legacy-peer-deps
-      - run: npm run build
-
-  # --------------------------------------------------
   # Frontend — Unit Tests (Vitest)
   # --------------------------------------------------
   test_frontend:
@@ -255,47 +275,99 @@ jobs:
       - run: npm test -- --run
 
   # --------------------------------------------------
-  # Python — Ruff Lint & Format Check
+  # Frontend — Production Build
   # --------------------------------------------------
-  lint_python:
-    name: "Python: Ruff"
-    needs: changes
-    if: needs.changes.outputs.python == 'true'
+  build_frontend:
+    name: "Frontend: Build"
+    needs:
+      - changes
+      - test_frontend
+    if: needs.changes.outputs.frontend == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: services/ai-tutor-service
+        working-directory: apps/web
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-node@v4
         with:
-          python-version: "3.11"
-      - name: Install ruff
-        run: pip install ruff
-      - name: Ruff lint
-        run: ruff check .
-      - name: Ruff format check
-        run: ruff format --check .
+          node-version: 20
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+      - run: npm ci --legacy-peer-deps
+      - run: npm run build
 
   # --------------------------------------------------
-  # Python — Unit Tests (pytest)
+  # Dependency scan — report-first on GitHub-hosted
   # --------------------------------------------------
-  test_python:
-    name: "Python: Tests"
+  dependency_scan:
+    name: Dependency scan
     needs: changes
-    if: needs.changes.outputs.python == 'true'
+    if: needs.changes.outputs.java == 'true' || needs.changes.outputs.frontend == 'true' || needs.changes.outputs.infra == 'true' || needs.changes.outputs.docker == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Trivy filesystem scan
+        uses: aquasecurity/trivy-action@v1
+        with:
+          scan-type: fs
+          scan-ref: .
+          format: table
+          vuln-type: os,library
+          severity: HIGH,CRITICAL
+          exit-code: '0'
+          ignore-unfixed: true
+
+  # --------------------------------------------------
+  # IaC / workflow scan — Checkov
+  # --------------------------------------------------
+  checkov_infra:
+    name: "Checkov: infra"
+    needs: changes
+    if: needs.changes.outputs.infra == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run Checkov on infra
+        uses: bridgecrewio/checkov-action@master
+        with:
+          directory: infra
+
+  checkov_workflows:
+    name: "Checkov: workflows"
+    needs: changes
+    if: needs.changes.outputs.infra == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run Checkov on GitHub workflows
+        uses: bridgecrewio/checkov-action@master
+        with:
+          directory: .github/workflows
+
+  # --------------------------------------------------
+  # OpenTofu validation — GitHub-hosted
+  # --------------------------------------------------
+  infra_validate:
+    name: OpenTofu validate
+    needs: changes
+    if: needs.changes.outputs.infra == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: services/ai-tutor-service
+        working-directory: infra/opentofu
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - name: Setup OpenTofu
+        uses: opentofu/setup-opentofu@v1
         with:
-          python-version: "3.11"
-          cache: pip
-      - run: pip install -r requirements.txt
-      - run: pytest -v
+          tofu_version: 1.9.0
+      - name: Init
+        run: tofu init -backend=false
+      - name: Format check
+        run: tofu fmt -check -recursive
+      - name: Validate
+        run: tofu validate
 
   # --------------------------------------------------
   # Docker — Build smoke test (no push)
@@ -313,10 +385,38 @@ jobs:
             context: services/gateway
           - service: auth-service
             context: services/auth-service
+          - service: course-service
+            context: services/course-service
+          - service: content-service
+            context: services/content-service
     steps:
       - uses: actions/checkout@v4
       - name: Build Docker image
         run: docker build -t sagelms-${{ matrix.service }}:ci-test ${{ matrix.context }}
+
+  # --------------------------------------------------
+  # SonarQube — optional self-hosted job, disabled by default
+  # --------------------------------------------------
+  sonar_optional:
+    name: SonarQube (optional self-hosted)
+    needs: changes
+    if: ${{ vars.ENABLE_SONAR == 'true' && (needs.changes.outputs.java == 'true' || needs.changes.outputs.frontend == 'true' || needs.changes.outputs.infra == 'true' || needs.changes.outputs.docker == 'true') }}
+    runs-on: [self-hosted, devsecops, security]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: SonarScanner
+        env:
+          SONAR_HOST_URL: ${{ vars.SONAR_HOST_URL }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_PROJECT_KEY: ${{ vars.SONAR_PROJECT_KEY }}
+        run: |
+          sonar-scanner \
+            -Dsonar.host.url="$SONAR_HOST_URL" \
+            -Dsonar.token="$SONAR_TOKEN" \
+            -Dsonar.projectKey="$SONAR_PROJECT_KEY" \
+            -Dsonar.sources=apps/web,services,contracts,infra
 
   # --------------------------------------------------
   # Status gate — single check for branch protection
@@ -330,13 +430,17 @@ jobs:
       - conventions_branch
       - conventions_commits
       - test_java
+      - build_java
       - lint_frontend
       - typecheck_frontend
       - build_frontend
       - test_frontend
-      - lint_python
-      - test_python
+      - dependency_scan
+      - checkov_infra
+      - checkov_workflows
+      - infra_validate
       - docker_build
+      - sonar_optional
     runs-on: ubuntu-latest
     steps:
       - name: Check all job statuses
@@ -348,13 +452,17 @@ jobs:
             "conventions_branch:${{ needs.conventions_branch.result }}"
             "conventions_commits:${{ needs.conventions_commits.result }}"
             "test_java:${{ needs.test_java.result }}"
+            "build_java:${{ needs.build_java.result }}"
             "lint_frontend:${{ needs.lint_frontend.result }}"
             "typecheck_frontend:${{ needs.typecheck_frontend.result }}"
             "build_frontend:${{ needs.build_frontend.result }}"
             "test_frontend:${{ needs.test_frontend.result }}"
-            "lint_python:${{ needs.lint_python.result }}"
-            "test_python:${{ needs.test_python.result }}"
+            "dependency_scan:${{ needs.dependency_scan.result }}"
+            "checkov_infra:${{ needs.checkov_infra.result }}"
+            "checkov_workflows:${{ needs.checkov_workflows.result }}"
+            "infra_validate:${{ needs.infra_validate.result }}"
             "docker_build:${{ needs.docker_build.result }}"
+            "sonar_optional:${{ needs.sonar_optional.result }}"
           )
           failed=0
           for r in "${results[@]}"; do
@@ -374,4 +482,3 @@ jobs:
           fi
           echo ""
           echo "✅ All CI checks passed!"
-
