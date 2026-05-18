@@ -28,8 +28,8 @@ File này chứa các thông tin bàn giao an toàn cho Thành viên 1, Thành v
 - Kiểu cluster: GKE Standard regional
 - Node pool theo cấu hình OpenTofu: `sagelms-devsecops-main-pool`
 - Node locations: `asia-southeast1-b`, `asia-southeast1-c`
-- Số node Ready hiện tại: 0
-- Trạng thái node pool hiện tại: đã xóa tạm thời để tiết kiệm compute; OpenTofu plan hiện sẽ tạo lại node pool khi cần chạy workload
+- Số node Ready hiện tại: 2
+- Trạng thái node pool hiện tại: đã tạo lại bằng OpenTofu, `tofu plan -no-color -detailed-exitcode` trả exit code `0`
 - Machine type: `e2-standard-4`
 - Disk: `pd-balanced`, 50 GB
 - Private nodes: đã bật
@@ -70,7 +70,7 @@ $env:Path = "C:\Users\THANG\AppData\Local\Google\Cloud SDK\google-cloud-sdk\bin;
 - Database: `sagelms`
 - App user MVP: `sagelms_app`
 - RW service dự kiến: `sagelms-postgres-rw.sagelms-data.svc.cluster.local:5432`
-- Runtime CloudNativePG chưa deploy vì node pool đang bị xóa tạm thời.
+- Runtime CloudNativePG chưa deploy; hiện mới hoàn thành cloud/Kubernetes foundation.
 
 CloudNativePG backup foundation đã apply:
 
@@ -122,7 +122,7 @@ Cả hai bucket đều được OpenTofu quản lý, đã bật uniform bucket-l
 - Annotation trên ESO KSA: `iam.gke.io/gcp-service-account=sagelms-devsecops-eso-sa@sagelms.iam.gserviceaccount.com`
 - ClusterSecretStore: `gcpsm-sagelms-devsecops`
 - Trạng thái ClusterSecretStore object: `Valid`, `Ready=True`
-- Lưu ý: khi node pool đang bị xóa, ESO controller/webhook không có pod chạy; cần tạo lại node pool trước khi apply ExternalSecret mới hoặc đồng bộ secret mới.
+- ESO deployments: `external-secrets`, `external-secrets-cert-controller`, `external-secrets-webhook` đều `1/1`.
 
 ## Service Accounts GCP
 
@@ -195,15 +195,16 @@ Các secret version còn chờ input từ nhóm:
 Namespace `sagelms-devsecops`:
 
 - `db-common-secret`
+- `db-app-secret`
 - `jwt-secret`
 - `gateway-shared-secret`
 - `redis-secret`
 
-Manifest đã chuẩn bị nhưng cần apply lại sau khi node pool chạy để ESO admission webhook có endpoint:
+Manifest Kubernetes foundation:
 
 - `infra/k8s/devsecops/cnpg-foundation.yaml`
 
-Các ExternalSecret mới trong manifest đó:
+Các ExternalSecret mới đã apply và đồng bộ:
 
 - `sagelms-devsecops/db-app-secret`
 - `sagelms-data/sagelms-postgres-app-secret`
@@ -214,6 +215,8 @@ Kubernetes foundation đã tạo được dù node pool đang tắt:
 - Namespace `cnpg-system`
 - Namespace `sagelms-data`
 - KSA `sagelms-data/sagelms-postgres` với annotation Workload Identity tới backup GSA
+- Secret `sagelms-data/sagelms-postgres-app-secret`
+- Secret `sagelms-data/sagelms-postgres-superuser-secret`
 
 Namespace `monitoring`:
 
@@ -229,4 +232,4 @@ Chưa đồng bộ vì source secret chưa có value thật:
 - Thành viên 1 có thể dùng project, region, tên GKE cluster, WIF provider, GitHub Actions GSA và OpenTofu path để làm CI/CD workflow.
 - Thành viên 2 cần cung cấp Harbor endpoint/project/robot credential hoặc Docker config JSON cho `sagelms-devsecops-harbor-pull-secret`.
 - Thành viên 3 có thể dùng GKE cluster, namespaces, ESO mapping, ClusterSecretStore, CloudNativePG backup bucket/GSA và Kubernetes secret contract để viết runtime manifests.
-- Trước khi deploy runtime CloudNativePG/operator/app, cần tạo lại node pool bằng OpenTofu vì hiện node pool đang được xóa để tiết kiệm chi phí.
+- Bước tiếp theo trước khi deploy app thật: cài CloudNativePG operator/Barman plugin, tạo ObjectStore, Cluster CR và ScheduledBackup.

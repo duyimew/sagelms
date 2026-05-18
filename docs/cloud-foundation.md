@@ -44,18 +44,19 @@
 - Workload Identity: đã bật với pool `<project_id>.svc.id.goog`
 - Node pool theo cấu hình: `e2-standard-4`, ban đầu một node trên mỗi configured zone, autoscaling 1-2 nodes/zone
 - Node locations hiện tại của `devsecops`: `asia-southeast1-b`, `asia-southeast1-c`
-- Trạng thái vận hành hiện tại: node pool đang bị xóa tạm thời để tiết kiệm compute; apply OpenTofu full plan sẽ tạo lại node pool.
+- Trạng thái vận hành hiện tại: node pool đã được tạo lại, 2 node Ready.
 
 ## Runtime Bootstrap Hiện Tại
 
 - Namespace convention: `sagelms-devsecops`, `platform-system`, `cnpg-system`, `sagelms-data`, `harbor`, `monitoring`.
 - Namespace `cnpg-system` và `sagelms-data` đã tạo trên cluster.
 - KSA `sagelms-data/sagelms-postgres` đã annotate với `sagelms-devsecops-cnpg-sa@sagelms.iam.gserviceaccount.com`.
-- External Secrets Operator đã từng được bootstrap trong namespace `platform-system`; khi node pool đang bị xóa, controller workload không chạy cho đến khi node pool được tạo lại.
+- External Secrets Operator đang chạy trong namespace `platform-system`.
 - ESO dùng KSA `platform-system/external-secrets` map với GSA `sagelms-devsecops-eso-sa@sagelms.iam.gserviceaccount.com`.
 - ClusterSecretStore `gcpsm-sagelms-devsecops` đang `Ready=True`.
 - ExternalSecrets cho DB, Redis, JWT, gateway shared secret và Grafana admin đã đồng bộ.
-- Manifest ExternalSecret mới cho CloudNativePG nằm ở `infra/k8s/devsecops`; apply hiện bị chặn cho tới khi ESO webhook chạy lại trên node pool.
+- Manifest ExternalSecret mới cho CloudNativePG nằm ở `infra/k8s/devsecops` và đã apply thành công.
+- ExternalSecrets mới đã đồng bộ: `sagelms-data/sagelms-postgres-app-secret`, `sagelms-data/sagelms-postgres-superuser-secret`, `sagelms-devsecops/db-app-secret`.
 - Harbor pull secret và LLM API key hiện mới có metadata, chờ value thật từ nhóm.
 
 ## Ghi Chú Vận Hành
@@ -68,7 +69,7 @@
 
 ## Rủi Ro Đã Biết
 
-- Full OpenTofu plan hiện còn pending tạo lại node pool do trạng thái pause compute có chủ đích. Không apply full plan nếu vẫn muốn giữ GKE không có worker node.
+- Full OpenTofu plan hiện no-op sau khi node pool được tạo lại.
 - CloudNativePG chạy cùng failure domain với GKE. Không coi PVC là backup; phải bật base backup/WAL archive ra GCS và chạy restore drill trước khi bàn giao dữ liệu thật.
 - CloudNativePG secret value được tạo ngoài OpenTofu để tránh đưa password vào state.
 - Redis AUTH string có thể xuất hiện trong OpenTofu state vì provider expose nó như một sensitive generated attribute. Cần giới hạn quyền đọc state bucket.

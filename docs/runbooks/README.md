@@ -11,7 +11,8 @@ runbooks/
 ├── local-dev.md                              ← Hướng dẫn troubleshooting local development
 ├── sonarqube-local.md                        ← Hướng dẫn chạy SonarQube self-hosted
 ├── self-hosted-github-runner.md              ← Hướng dẫn setup GitHub Actions runner
-└── devsecops-cloud-iac-manual-operations.md ← Vận hành thủ công Cloud/IaC DevSecOps
+├── devsecops-cloud-iac-manual-operations.md ← Vận hành thủ công Cloud/IaC DevSecOps
+└── cloudnativepg-foundation-manual-operations.md ← Chạy thủ công CloudNativePG foundation
 ```
 
 ### `local-dev.md`
@@ -46,6 +47,10 @@ Hướng dẫn vận hành phần Cloud/IaC DevSecOps:
 - Kiểm tra GKE, CloudNativePG backup foundation, Redis, Secret Manager, ESO
 - Tạm dừng để tiết kiệm chi phí
 - Xóa và tạo lại tài nguyên đúng thứ tự
+
+### `cloudnativepg-foundation-manual-operations.md`
+
+Ghi lại lệnh đã chạy khi chuyển từ Cloud SQL sang CloudNativePG foundation, và hướng dẫn bật lại node pool, apply namespace/KSA/ExternalSecret cho CloudNativePG.
 
 ## Dự kiến bổ sung
 
