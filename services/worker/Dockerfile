@@ -14,5 +14,4 @@ WORKDIR /app
 RUN addgroup -S -g 10001 sagelms && adduser -S -D -H -u 10001 -G sagelms sagelms
 COPY --from=build --chown=10001:10001 /app/target/*.jar app.jar
 USER 10001:10001
-EXPOSE 8081
 ENTRYPOINT ["java", "-jar", "app.jar"]
