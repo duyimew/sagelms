@@ -21,6 +21,7 @@ import {
   Image as ImageIcon,
   ListChecks,
   Plus,
+  X,
   Save,
   Trash2,
   Upload,
@@ -621,7 +622,7 @@ export default function QuestionPage() {
             <Upload className="mr-2 h-4 w-4" />
             Import
           </Button>
-          <Button type="button" variant="secondary" onClick={handleDeleteQuestionSet} disabled={saving}>
+          <Button type="button" variant="danger" onClick={handleDeleteQuestionSet} disabled={saving}>
             <Trash2 className="mr-2 h-4 w-4" />
             Xóa
           </Button>
@@ -644,24 +645,24 @@ export default function QuestionPage() {
             />
           </div>
           <div>
-            <label className="mb-2 block text-sm font-medium text-slate-700">Thời gian</label>
+            <label className="mb-2 block text-sm font-medium text-slate-700">Thời gian (phút)</label>
             <input
               type="number"
               min={0}
               value={setTimeLimit}
-              placeholder="0 phút"
+              placeholder="0 giới hạn"
               onChange={(event) => setSetTimeLimit(event.target.value === '' ? '' : Number(event.target.value))}
               className="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20"
             />
           </div>
           <div>
-            <label className="mb-2 block text-sm font-medium text-slate-700">Số lượt làm lại</label>
+            <label className="mb-2 block text-sm font-medium text-slate-700">Số lượt làm</label>
             <input
               type="number"
               min={0}
               value={setMaxAttempts}
               onChange={(event) => setSetMaxAttempts(event.target.value === '' ? '' : Number(event.target.value))}
-              placeholder="0 lần"
+              placeholder="1 lần"
               className="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20"
             />
           </div>
@@ -959,7 +960,7 @@ export default function QuestionPage() {
                 className="rounded-xl p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
               >
                 <span className="sr-only">Đóng</span>
-                ×
+                <X className="h-4 w-4" />
               </button>
             </div>
 
