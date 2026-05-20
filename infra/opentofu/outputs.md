@@ -193,12 +193,12 @@ Các secret version đã được thêm value:
 - Redis host/port/password
 - JWT secret
 - Gateway shared secret
+- Internal API secret
 - Grafana admin password
 
 Các secret version còn chờ input từ nhóm:
 
 - `sagelms-devsecops-harbor-pull-secret`
-- `sagelms-devsecops-internal-api-secret`
 - `sagelms-devsecops-llm-api-key`
 
 ## Kubernetes Secrets Được ESO Đồng Bộ
