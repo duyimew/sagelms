@@ -7,15 +7,6 @@ on:
       - "infra/opentofu/**"
       - ".github/workflows/infra-plan.yml"
   workflow_dispatch:
-    inputs:
-      run_plan:
-        description: "Run a real OpenTofu plan against the remote GCS backend"
-        required: true
-        default: "true"
-        type: choice
-        options:
-          - "true"
-          - "false"
 
 permissions:
   contents: read
@@ -68,7 +59,7 @@ jobs:
     needs:
       - validate
       - checkov
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_plan == 'true' }}
+    if: ${{ github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-latest
     environment: devsecops-infra
     env:

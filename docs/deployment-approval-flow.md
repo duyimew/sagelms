@@ -123,6 +123,8 @@ Workflow `.github/workflows/infra-plan.yml` tách thành hai lớp:
 | `checkov` | Pull Request hoặc manual | Không | Scan static OpenTofu bằng Checkov |
 | `plan` | `workflow_dispatch` | Có, qua GitHub Environment `devsecops-infra` | Tạo remote plan với GCS backend |
 
+`workflow_dispatch` không nhận input để tuân thủ Checkov rule `CKV_GHA_7`. Khi chạy manual workflow này, job `plan` sẽ chạy sau khi `validate` và `checkov` pass.
+
 Environment `devsecops-infra` cần các biến:
 
 ```text
