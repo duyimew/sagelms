@@ -52,6 +52,7 @@ variable "secret_suffixes" {
     "redis-password",
     "jwt-secret",
     "gateway-shared-secret",
+    "internal-api-secret",
     "llm-api-key",
     "harbor-pull-secret",
     "grafana-admin-password",

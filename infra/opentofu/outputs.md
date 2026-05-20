@@ -179,6 +179,7 @@ Cả hai bucket đều được OpenTofu quản lý, đã bật uniform bucket-l
 - `sagelms-devsecops-redis-password`
 - `sagelms-devsecops-jwt-secret`
 - `sagelms-devsecops-gateway-shared-secret`
+- `sagelms-devsecops-internal-api-secret`
 - `sagelms-devsecops-llm-api-key`
 - `sagelms-devsecops-harbor-pull-secret`
 - `sagelms-devsecops-grafana-admin-password`
@@ -197,6 +198,7 @@ Các secret version đã được thêm value:
 Các secret version còn chờ input từ nhóm:
 
 - `sagelms-devsecops-harbor-pull-secret`
+- `sagelms-devsecops-internal-api-secret`
 - `sagelms-devsecops-llm-api-key`
 
 ## Kubernetes Secrets Được ESO Đồng Bộ
@@ -205,6 +207,7 @@ Namespace `sagelms-devsecops`:
 
 - `db-common-secret`
 - `db-app-secret`
+- `app-shared-secret`
 - `jwt-secret`
 - `gateway-shared-secret`
 - `redis-secret`
@@ -212,6 +215,7 @@ Namespace `sagelms-devsecops`:
 Manifest Kubernetes foundation:
 
 - `infra/k8s/devsecops/cnpg-foundation.yaml`
+- `infra/k8s/devsecops/apps/app-shared-externalsecret.yaml`
 
 Các ExternalSecret mới đã apply và đồng bộ:
 
