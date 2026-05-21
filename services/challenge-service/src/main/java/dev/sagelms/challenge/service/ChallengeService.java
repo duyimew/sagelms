@@ -766,12 +766,6 @@ public class ChallengeService {
                 : null;
     }
 
-    private String normalizeFilterValue(String value) {
-        return value != null && !value.isBlank()
-                ? value.trim().toLowerCase(Locale.ROOT)
-                : null;
-    }
-
     private void ensureAttemptWithinTimeLimit(ChallengeAttempt attempt) {
         ChallengeQuestionSet questionSet = attempt.getQuestionSet();
         Integer timeLimitMinutes = questionSet != null ? questionSet.getTimeLimitMinutes() : null;
