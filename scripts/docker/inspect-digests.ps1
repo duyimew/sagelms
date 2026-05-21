@@ -34,6 +34,7 @@ $images = @(
   "auth-service",
   "course-service",
   "content-service",
+  "assessment-service",
   "challenge-service"
 )
 

@@ -30,6 +30,7 @@ $images = @(
   @{ Name = "auth-service"; Context = "services/auth-service" },
   @{ Name = "course-service"; Context = "services/course-service" },
   @{ Name = "content-service"; Context = "services/content-service" },
+  @{ Name = "assessment-service"; Context = "services/assessment-service" },
   @{ Name = "challenge-service"; Context = "services/challenge-service" }
 )
 

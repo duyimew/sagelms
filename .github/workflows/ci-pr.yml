@@ -141,6 +141,8 @@ jobs:
               - 'services/course-service/.dockerignore'
               - 'services/content-service/Dockerfile'
               - 'services/content-service/.dockerignore'
+              - 'services/assessment-service/Dockerfile'
+              - 'services/assessment-service/.dockerignore'
               - 'services/challenge-service/Dockerfile'
               - 'services/challenge-service/.dockerignore'
               - 'infra/docker/**'
@@ -333,6 +335,8 @@ jobs:
             context: services/course-service
           - service: content-service
             context: services/content-service
+          - service: assessment-service
+            context: services/assessment-service
           - service: challenge-service
             context: services/challenge-service
     steps:

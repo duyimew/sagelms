@@ -11,6 +11,7 @@ This document covers the P0 Docker image work for SageLMS. It is independent fro
 | `sagelms/auth-service:<tag>` | `services/auth-service` | P0 |
 | `sagelms/course-service:<tag>` | `services/course-service` | P0 |
 | `sagelms/content-service:<tag>` | `services/content-service` | P0 |
+| `sagelms/assessment-service:<tag>` | `services/assessment-service` | P0 |
 | `sagelms/challenge-service:<tag>` | `services/challenge-service` | P0 |
 
 Optional/out of P0:
@@ -19,7 +20,6 @@ Optional/out of P0:
 | --- | --- |
 | `services/ai-tutor-service` | Optional for MVP. |
 | `services/progress-service` | Add after P0 if runtime needs it. |
-| `services/assessment-service` | Add after P0 if runtime needs it. |
 | `services/worker` | Add after P0 if runtime needs it. |
 
 ## Image conventions
@@ -61,6 +61,7 @@ docker build -t sagelms/gateway:dev services/gateway
 docker build -t sagelms/auth-service:dev services/auth-service
 docker build -t sagelms/course-service:dev services/course-service
 docker build -t sagelms/content-service:dev services/content-service
+docker build -t sagelms/assessment-service:dev services/assessment-service
 docker build -t sagelms/challenge-service:dev services/challenge-service
 ```
 
@@ -106,6 +107,7 @@ $images = @(
   "sagelms/auth-service:dev",
   "sagelms/course-service:dev",
   "sagelms/content-service:dev",
+  "sagelms/assessment-service:dev",
   "sagelms/challenge-service:dev"
 )
 
