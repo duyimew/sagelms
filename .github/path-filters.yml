@@ -10,6 +10,8 @@ progress_service:
   - "services/progress-service/**"
 assessment_service:
   - "services/assessment-service/**"
+challenge_service:
+  - "services/challenge-service/**"
 worker:
   - "services/worker/**"
 frontend:
@@ -21,5 +23,9 @@ infra:
   - "platform/**"
   - ".github/workflows/**"
 docker:
+  - "apps/web/Dockerfile"
+  - "apps/web/nginx.conf"
   - "services/*/Dockerfile"
   - "infra/docker/**"
+  - "scripts/docker/**"
+  - "docs/docker-images.md"
