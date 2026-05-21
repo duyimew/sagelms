@@ -11,6 +11,8 @@ on:
       - "services/content-service/**"
       - "services/assessment-service/**"
       - "services/challenge-service/**"
+      - "services/progress-service/**"
+      - "services/worker/**"
       - ".github/workflows/build-publish.yml"
   workflow_dispatch:
 
@@ -46,6 +48,10 @@ jobs:
             context: services/assessment-service
           - service: challenge-service
             context: services/challenge-service
+          - service: progress-service
+            context: services/progress-service
+          - service: worker
+            context: services/worker
     steps:
       - uses: actions/checkout@v4
 
@@ -105,6 +111,10 @@ jobs:
             context: services/assessment-service
           - service: challenge-service
             context: services/challenge-service
+          - service: progress-service
+            context: services/progress-service
+          - service: worker
+            context: services/worker
     env:
       REGISTRY_HOST: ${{ vars.REGISTRY_HOST }}
       REGISTRY_NAMESPACE: ${{ vars.REGISTRY_NAMESPACE }}
