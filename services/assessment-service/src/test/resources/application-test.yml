@@ -1,0 +1,17 @@
+# Test profile - use H2 in-memory DB so CI does not depend on Postgres.
+spring:
+  datasource:
+    url: jdbc:h2:mem:testdb;INIT=CREATE SCHEMA IF NOT EXISTS ASSESSMENT
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    properties:
+      hibernate:
+        default_schema: assessment
+
+  flyway:
+    enabled: false
