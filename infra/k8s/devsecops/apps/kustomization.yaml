@@ -6,7 +6,6 @@ namespace: sagelms-devsecops
 resources:
   - ../../base/apps
   - app-shared-externalsecret.yaml
-  - harbor-pull-externalsecret.yaml
   - ingress.yaml
 
 images:
@@ -60,12 +59,3 @@ patches:
         path: /metadata/annotations
         value:
           cloud.google.com/neg: '{"ingress": true}'
-  - target:
-      kind: Deployment
-      name: worker
-    patch: |-
-      - op: add
-        path: /spec/template/spec/containers/0/envFrom/-
-        value:
-          secretRef:
-            name: redis-secret

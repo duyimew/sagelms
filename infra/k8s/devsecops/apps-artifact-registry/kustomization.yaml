@@ -27,9 +27,6 @@ images:
   - name: harbor.sagelms.dev/sagelms-app/assessment-service
     newName: asia-southeast1-docker.pkg.dev/sagelms/sagelms-app/assessment-service
     newTag: gke-temp-93d7c34
-  - name: harbor.sagelms.dev/sagelms-app/worker
-    newName: asia-southeast1-docker.pkg.dev/sagelms/sagelms-app/worker
-    newTag: gke-temp-93d7c34
   - name: harbor.sagelms.dev/sagelms-app/web
     newName: asia-southeast1-docker.pkg.dev/sagelms/sagelms-app/web
     newTag: gke-temp-93d7c34
@@ -52,11 +49,29 @@ patches:
         value:
           cloud.google.com/neg: '{"ingress": true}'
   - target:
+      kind: ServiceAccount
+      name: worker
+    patch: |-
+      $patch: delete
+      apiVersion: v1
+      kind: ServiceAccount
+      metadata:
+        name: worker
+  - target:
+      kind: ConfigMap
+      name: worker-config
+    patch: |-
+      $patch: delete
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: worker-config
+  - target:
       kind: Deployment
       name: worker
     patch: |-
-      - op: add
-        path: /spec/template/spec/containers/0/envFrom/-
-        value:
-          secretRef:
-            name: redis-secret
+      $patch: delete
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: worker
