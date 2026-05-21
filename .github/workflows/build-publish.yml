@@ -85,7 +85,7 @@ jobs:
   publish_registry:
     name: Publish to container registry
     needs: build_scan_sbom
-    if: ${{ github.ref == 'refs/heads/main' && vars.REGISTRY_HOST != '' }}
+    if: ${{ github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-latest
     environment: devsecops-build
     env:
