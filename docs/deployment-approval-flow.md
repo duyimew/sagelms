@@ -51,6 +51,20 @@ main
 -> resolve image digest
 ```
 
+Workflow `.github/workflows/build-publish.yml` hiện triển khai phần vertical slice đầu tiên cho `auth-service`:
+
+```text
+push main hoặc workflow_dispatch
+-> build local Docker image auth-service:<short-sha>
+-> Trivy image scan
+-> generate CycloneDX SBOM
+-> upload SBOM artifact
+-> nếu có registry config thì push registry
+-> inspect pushed image digest
+```
+
+Trong giai đoạn chưa có Harbor, có thể dùng Docker Hub tạm để chứng minh build/push/digest/SBOM. Khi Member 2 bàn giao Harbor endpoint/robot credential, chỉ cần đổi biến của GitHub Environment `devsecops-build` từ Docker Hub sang Harbor.
+
 Quy ước image:
 
 ```text

@@ -25,6 +25,7 @@ Các gate hiện đang bật:
 | IaC/config scan | `checkov_infra`, `checkov_workflows` | Khi infra/platform/workflow thay đổi | Checkov finding không được xử lý hoặc allowlist |
 | OpenTofu validate | `infra_validate` | Khi infra/platform/workflow thay đổi | `tofu fmt` hoặc `tofu validate` fail |
 | Docker smoke build | `docker_build` | Khi service có Dockerfile thay đổi | `docker build` fail |
+| SonarCloud optional | `sonarcloud` | Chỉ khi `ENABLE_SONARCLOUD=true` | SonarCloud scan hoặc quality gate fail |
 | SonarQube optional | `sonar_optional` | Chỉ khi `ENABLE_SONAR=true` | SonarScanner/quality gate fail |
 | Branch-protection status | `ci_status` | Mọi PR | Một job required bị failure/cancelled |
 
@@ -45,6 +46,15 @@ Các service Java được tách riêng:
 Workflow tạo dynamic matrix từ các filter này, nên PR sửa một service chỉ chạy Maven test/package cho service đó.
 
 ## SonarQube
+
+SonarCloud có thể chạy ngay trên GitHub-hosted runner:
+
+- Bật bằng repository variable `ENABLE_SONARCLOUD=true`.
+- Cần `SONAR_PROJECT_KEY` và `SONAR_ORGANIZATION` trong repository variables.
+- Cần `SONAR_TOKEN` trong GitHub Secrets.
+- Job `sonarcloud` dùng `SonarSource/sonarqube-scan-action@v7` và chờ quality gate bằng `sonar.qualitygate.wait=true`.
+
+SonarQube self-hosted vẫn được giữ ở chế độ optional nếu sau này team muốn demo server local/private.
 
 SonarQube đang được giữ ở chế độ optional:
 
@@ -78,6 +88,47 @@ Các bằng chứng cần chụp/lưu khi demo:
 - Log `checkov_infra` hoặc `checkov_workflows` pass khi sửa infra/workflow.
 - Log `infra_validate` pass khi sửa `infra/opentofu`.
 - Nếu bật SonarQube: screenshot quality gate pass trong SonarQube và log `sonar_optional`.
+- Screenshot workflow `Build and Publish Image` build được `auth-service`.
+- Artifact SBOM `sbom-auth-service` được upload sau build.
+- Log Trivy image scan trong workflow build/publish.
+
+## Build/publish image gate
+
+Workflow `.github/workflows/build-publish.yml` là vertical slice đầu tiên cho `auth-service`.
+
+Hiện tại workflow chạy khi merge vào `main` hoặc chạy thủ công:
+
+| Stage | Job | Mục đích |
+|---|---|---|
+| Build | `build_scan_sbom` | Build Docker image local cho `auth-service` bằng short SHA tag |
+| Image scan | `build_scan_sbom` | Scan image bằng Trivy với severity `HIGH,CRITICAL` |
+| SBOM | `build_scan_sbom` | Generate CycloneDX SBOM bằng Trivy và upload artifact |
+| Publish | `publish_registry` | Push image vào registry nếu đã cấu hình registry/credential |
+
+Trivy image scan đang dùng `exit-code: "0"` để workflow hoạt động ở chế độ report-first trong giai đoạn tích hợp. Khi Member 2 hoàn tất allowlist/triage vulnerability, có thể đổi sang `exit-code: "1"` để block image có `HIGH/CRITICAL` chưa xử lý.
+
+`publish_registry` chỉ chạy khi repository variable `REGISTRY_HOST` có giá trị và branch là `main`. Job này dùng GitHub Environment `devsecops-build`, cần:
+
+```text
+Variables:
+REGISTRY_HOST=docker.io
+REGISTRY_NAMESPACE=<dockerhub-username-or-org>
+
+Secrets:
+REGISTRY_USERNAME=<dockerhub-username>
+REGISTRY_PASSWORD=<dockerhub-access-token>
+```
+
+Với Harbor sau này, đổi cùng bộ biến sang:
+
+```text
+REGISTRY_HOST=harbor.sagelms.dev
+REGISTRY_NAMESPACE=sagelms-app
+REGISTRY_USERNAME=<harbor-robot-or-user>
+REGISTRY_PASSWORD=<harbor-robot-password>
+```
+
+Nếu chưa có registry, workflow vẫn build/scan/SBOM được và publish job sẽ skip.
 
 ## Required check đề xuất
 

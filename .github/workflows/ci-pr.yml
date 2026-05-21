@@ -397,6 +397,55 @@ jobs:
         run: docker build -t sagelms-${{ matrix.service }}:ci-test ${{ matrix.context }}
 
   # --------------------------------------------------
+  # SonarCloud — optional GitHub-hosted quality gate
+  # --------------------------------------------------
+  sonarcloud:
+    name: SonarCloud
+    needs: changes
+    if: ${{ vars.ENABLE_SONARCLOUD == 'true' && needs.changes.outputs.any_relevant == 'true' }}
+    runs-on: ubuntu-latest
+    env:
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      SONAR_PROJECT_KEY: ${{ vars.SONAR_PROJECT_KEY }}
+      SONAR_ORGANIZATION: ${{ vars.SONAR_ORGANIZATION }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check SonarCloud configuration
+        run: |
+          missing=0
+          if [[ -z "$SONAR_TOKEN" ]]; then
+            echo "Missing repository secret: SONAR_TOKEN"
+            missing=1
+          fi
+          if [[ -z "$SONAR_PROJECT_KEY" ]]; then
+            echo "Missing repository variable: SONAR_PROJECT_KEY"
+            missing=1
+          fi
+          if [[ -z "$SONAR_ORGANIZATION" ]]; then
+            echo "Missing repository variable: SONAR_ORGANIZATION"
+            missing=1
+          fi
+          if [[ $missing -ne 0 ]]; then
+            exit 1
+          fi
+
+      - name: SonarCloud scan
+        uses: SonarSource/sonarqube-scan-action@v7
+        env:
+          SONAR_TOKEN: ${{ env.SONAR_TOKEN }}
+        with:
+          args: >
+            -Dsonar.projectKey=${{ env.SONAR_PROJECT_KEY }}
+            -Dsonar.organization=${{ env.SONAR_ORGANIZATION }}
+            -Dsonar.host.url=https://sonarcloud.io
+            -Dsonar.sources=apps/web,services,contracts,infra
+            -Dsonar.exclusions=**/target/**,**/node_modules/**,**/dist/**,**/.terraform/**
+            -Dsonar.qualitygate.wait=true
+
+  # --------------------------------------------------
   # SonarQube — optional self-hosted job, disabled by default
   # --------------------------------------------------
   sonar_optional:
@@ -443,6 +492,7 @@ jobs:
       - checkov_workflows
       - infra_validate
       - docker_build
+      - sonarcloud
       - sonar_optional
     runs-on: ubuntu-latest
     steps:
@@ -466,6 +516,7 @@ jobs:
             "checkov_workflows:${{ needs.checkov_workflows.result }}"
             "infra_validate:${{ needs.infra_validate.result }}"
             "docker_build:${{ needs.docker_build.result }}"
+            "sonarcloud:${{ needs.sonarcloud.result }}"
             "sonar_optional:${{ needs.sonar_optional.result }}"
           )
           failed=0
