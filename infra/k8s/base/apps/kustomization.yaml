@@ -8,5 +8,6 @@ resources:
   - content-service
   - progress-service
   - assessment-service
+  - challenge-service
   - worker
   - web
