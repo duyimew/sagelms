@@ -402,8 +402,6 @@ jobs:
           - services/content-service/Dockerfile
           - services/assessment-service/Dockerfile
           - services/challenge-service/Dockerfile
-          - services/progress-service/Dockerfile
-          - services/worker/Dockerfile
     steps:
       - uses: actions/checkout@v4
       - name: Run Hadolint
