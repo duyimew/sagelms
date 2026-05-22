@@ -295,9 +295,9 @@ jobs:
           token: ${{ github.token }}
           branch: chore/deploy-${{ env.IMAGE_TAG }}
           delete-branch: true
-          title: "chore(deploy): update images to ${{ env.IMAGE_TAG }}"
+          title: "chore(deploy): update images to ${{ env.IMAGE_TAG }} [skip ci]"
           body-path: reports/deploy-pr-body-${{ env.IMAGE_TAG }}.md
-          commit-message: "chore(deploy): update images to ${{ env.IMAGE_TAG }}"
+          commit-message: "chore(deploy): update images to ${{ env.IMAGE_TAG }} [skip ci]"
           add-paths: |
             infra/k8s/devsecops/apps/kustomization.yaml
             reports/image-digests-${{ env.IMAGE_TAG }}.md
