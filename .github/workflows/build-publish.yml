@@ -25,27 +25,90 @@ env:
   IMAGE_TAG: ${{ github.sha }}
 
 jobs:
+  changes:
+    name: Detect changed images
+    runs-on: ubuntu-latest
+    outputs:
+      docker_images: ${{ steps.matrix.outputs.docker_images }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Detect changed image contexts
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            web:
+              - "apps/web/**"
+            gateway:
+              - "services/gateway/**"
+            auth_service:
+              - "services/auth-service/**"
+            course_service:
+              - "services/course-service/**"
+            content_service:
+              - "services/content-service/**"
+            assessment_service:
+              - "services/assessment-service/**"
+            challenge_service:
+              - "services/challenge-service/**"
+            all_images:
+              - ".github/workflows/build-publish.yml"
+
+      - name: Build image matrix
+        id: matrix
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          WEB: ${{ steps.filter.outputs.web }}
+          GATEWAY: ${{ steps.filter.outputs.gateway }}
+          AUTH_SERVICE: ${{ steps.filter.outputs.auth_service }}
+          COURSE_SERVICE: ${{ steps.filter.outputs.course_service }}
+          CONTENT_SERVICE: ${{ steps.filter.outputs.content_service }}
+          ASSESSMENT_SERVICE: ${{ steps.filter.outputs.assessment_service }}
+          CHALLENGE_SERVICE: ${{ steps.filter.outputs.challenge_service }}
+          ALL_IMAGES: ${{ steps.filter.outputs.all_images }}
+        run: |
+          docker_images=()
+
+          add_image() {
+            service="$1"
+            context="${2:-services/$1}"
+            docker_images+=("{\"service\":\"${service}\",\"context\":\"${context}\"}")
+          }
+
+          add_all_images() {
+            add_image "web" "apps/web"
+            add_image "gateway"
+            add_image "auth-service"
+            add_image "course-service"
+            add_image "content-service"
+            add_image "assessment-service"
+            add_image "challenge-service"
+          }
+
+          if [[ "$EVENT_NAME" == "workflow_dispatch" || "$ALL_IMAGES" == "true" ]]; then
+            add_all_images
+          else
+            if [[ "$WEB" == "true" ]]; then add_image "web" "apps/web"; fi
+            if [[ "$GATEWAY" == "true" ]]; then add_image "gateway"; fi
+            if [[ "$AUTH_SERVICE" == "true" ]]; then add_image "auth-service"; fi
+            if [[ "$COURSE_SERVICE" == "true" ]]; then add_image "course-service"; fi
+            if [[ "$CONTENT_SERVICE" == "true" ]]; then add_image "content-service"; fi
+            if [[ "$ASSESSMENT_SERVICE" == "true" ]]; then add_image "assessment-service"; fi
+            if [[ "$CHALLENGE_SERVICE" == "true" ]]; then add_image "challenge-service"; fi
+          fi
+
+          printf "docker_images=[%s]\n" "$(IFS=,; echo "${docker_images[*]}")" >> "$GITHUB_OUTPUT"
+
   build_scan_sbom:
     name: Build, scan, and SBOM
+    needs: changes
+    if: needs.changes.outputs.docker_images != '[]'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - service: web
-            context: apps/web
-          - service: gateway
-            context: services/gateway
-          - service: auth-service
-            context: services/auth-service
-          - service: course-service
-            context: services/course-service
-          - service: content-service
-            context: services/content-service
-          - service: assessment-service
-            context: services/assessment-service
-          - service: challenge-service
-            context: services/challenge-service
+        include: ${{ fromJson(needs.changes.outputs.docker_images) }}
     steps:
       - uses: actions/checkout@v4
 
@@ -83,28 +146,16 @@ jobs:
 
   publish_registry:
     name: Publish to container registry
-    needs: build_scan_sbom
-    if: ${{ github.ref == 'refs/heads/main' }}
+    needs:
+      - changes
+      - build_scan_sbom
+    if: ${{ github.ref == 'refs/heads/main' && needs.changes.outputs.docker_images != '[]' }}
     runs-on: ubuntu-latest
     environment: devsecops-build
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - service: web
-            context: apps/web
-          - service: gateway
-            context: services/gateway
-          - service: auth-service
-            context: services/auth-service
-          - service: course-service
-            context: services/course-service
-          - service: content-service
-            context: services/content-service
-          - service: assessment-service
-            context: services/assessment-service
-          - service: challenge-service
-            context: services/challenge-service
+        include: ${{ fromJson(needs.changes.outputs.docker_images) }}
     env:
       REGISTRY_HOST: ${{ vars.REGISTRY_HOST }}
       REGISTRY_NAMESPACE: ${{ vars.REGISTRY_NAMESPACE }}
