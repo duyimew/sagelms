@@ -15,7 +15,7 @@ FROM eclipse-temurin:17-jre-alpine
 WORKDIR /app
 
 RUN addgroup -S sagelms && adduser -S sagelms -G sagelms
-COPY --from=build --chown=sagelms:sagelms /app/target/*.jar app.jar
+COPY --from=build --chown=sagelms:sagelms --chmod=0444 /app/target/*.jar app.jar
 
 USER sagelms
 EXPOSE 8081
