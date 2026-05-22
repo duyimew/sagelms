@@ -18,9 +18,14 @@ permissions:
   contents: write
   pull-requests: write
   security-events: write
+  id-token: write
 
 env:
   KUSTOMIZATION_FILE: infra/k8s/devsecops/apps/kustomization.yaml
+  GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+  GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+  GCP_SERVICE_ACCOUNT: ${{ vars.GCP_SERVICE_ACCOUNT }}
+  GCP_SECRET_HARBOR_ROBOT_CI_PUSH: ${{ vars.GCP_SECRET_HARBOR_ROBOT_CI_PUSH || 'sagelms-devsecops-harbor-robot-ci-push' }}
 
 concurrency:
   group: cd-main-${{ github.ref }}
@@ -70,6 +75,8 @@ jobs:
       CHANGED_AI_TUTOR: ${{ needs.detect.outputs.ai_tutor_service }}
       DISPATCH_SERVICES: ${{ github.event.inputs.services }}
       EVENT_NAME: ${{ github.event_name }}
+      REGISTRY_HOST: ${{ vars.REGISTRY_HOST }}
+      REGISTRY_NAMESPACE: ${{ vars.REGISTRY_NAMESPACE }}
     steps:
       - name: Plan deploy services
         id: plan
@@ -148,8 +155,6 @@ jobs:
     env:
       REGISTRY_HOST: ${{ vars.REGISTRY_HOST }}
       REGISTRY_NAMESPACE: ${{ vars.REGISTRY_NAMESPACE }}
-      REGISTRY_USERNAME: ${{ secrets.REGISTRY_USERNAME }}
-      REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -175,17 +180,46 @@ jobs:
             echo "Missing repository variable: REGISTRY_NAMESPACE"
             missing=1
           fi
-          if [[ -z "$REGISTRY_USERNAME" ]]; then
-            echo "Missing repository secret: REGISTRY_USERNAME"
+          if [[ -z "$GCP_PROJECT_ID" ]]; then
+            echo "Missing repository variable: GCP_PROJECT_ID"
             missing=1
           fi
-          if [[ -z "$REGISTRY_PASSWORD" ]]; then
-            echo "Missing repository secret: REGISTRY_PASSWORD"
+          if [[ -z "$GCP_WORKLOAD_IDENTITY_PROVIDER" ]]; then
+            echo "Missing repository variable: GCP_WORKLOAD_IDENTITY_PROVIDER"
+            missing=1
+          fi
+          if [[ -z "$GCP_SERVICE_ACCOUNT" ]]; then
+            echo "Missing repository variable: GCP_SERVICE_ACCOUNT"
+            missing=1
+          fi
+          if [[ -z "$GCP_SECRET_HARBOR_ROBOT_CI_PUSH" ]]; then
+            echo "Missing repository variable: GCP_SECRET_HARBOR_ROBOT_CI_PUSH"
             missing=1
           fi
           if [[ $missing -ne 0 ]]; then
             exit 1
           fi
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ env.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ env.GCP_SERVICE_ACCOUNT }}
+
+      - name: Setup gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Verify Harbor robot secret access
+        shell: bash
+        run: |
+          set -euo pipefail
+          harbor_robot_json="$(gcloud secrets versions access latest --secret "$GCP_SECRET_HARBOR_ROBOT_CI_PUSH" --project "$GCP_PROJECT_ID")"
+          if [[ -z "$harbor_robot_json" ]]; then
+            echo "::error::Secret $GCP_SECRET_HARBOR_ROBOT_CI_PUSH has an empty latest version"
+            exit 1
+          fi
+          echo "::add-mask::$harbor_robot_json"
+          echo "Harbor robot secret is available."
 
       - name: Set up JDK
         uses: actions/setup-java@v4
@@ -236,8 +270,6 @@ jobs:
       IMAGE_TAG: ${{ github.sha }}
       REGISTRY_HOST: ${{ vars.REGISTRY_HOST }}
       REGISTRY_NAMESPACE: ${{ vars.REGISTRY_NAMESPACE }}
-      REGISTRY_USERNAME: ${{ secrets.REGISTRY_USERNAME }}
-      REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -264,12 +296,40 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y trivy
 
-      - name: Login to Harbor
-        uses: docker/login-action@v3
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
         with:
-          registry: ${{ env.REGISTRY_HOST }}
-          username: ${{ env.REGISTRY_USERNAME }}
-          password: ${{ env.REGISTRY_PASSWORD }}
+          workload_identity_provider: ${{ env.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ env.GCP_SERVICE_ACCOUNT }}
+
+      - name: Setup gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Login to Harbor
+        shell: bash
+        run: |
+          set -euo pipefail
+          harbor_robot_json="$(gcloud secrets versions access latest --secret "$GCP_SECRET_HARBOR_ROBOT_CI_PUSH" --project "$GCP_PROJECT_ID")"
+          if [[ -z "$harbor_robot_json" ]]; then
+            echo "::error::Secret $GCP_SECRET_HARBOR_ROBOT_CI_PUSH has an empty latest version"
+            exit 1
+          fi
+
+          registry_username="$(jq -r '.name // .username // .robot_name // empty' <<< "$harbor_robot_json")"
+          registry_password="$(jq -r '.secret // .token // .password // empty' <<< "$harbor_robot_json")"
+
+          if [[ -z "$registry_username" ]]; then
+            echo "::error::Secret $GCP_SECRET_HARBOR_ROBOT_CI_PUSH must contain one of: name, username, robot_name"
+            exit 1
+          fi
+          if [[ -z "$registry_password" ]]; then
+            echo "::error::Secret $GCP_SECRET_HARBOR_ROBOT_CI_PUSH must contain one of: secret, token, password"
+            exit 1
+          fi
+
+          echo "::add-mask::$registry_username"
+          echo "::add-mask::$registry_password"
+          printf '%s' "$registry_password" | docker login "$REGISTRY_HOST" --username "$registry_username" --password-stdin
 
       - name: Prepare deploy reports
         shell: bash
