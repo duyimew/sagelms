@@ -435,6 +435,19 @@ jobs:
               --type cyclonedx \
               "$digest_ref" 2>&1 | tee "reports/cosign/cosign-attest-sbom-$service.txt"
 
+            identity="https://github.com/$GITHUB_REPOSITORY/.github/workflows/cd-main.yml@refs/heads/$GITHUB_REF_NAME"
+
+            cosign verify "$digest_ref" \
+              --certificate-identity "$identity" \
+              --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+              2>&1 | tee "reports/cosign/cosign-verify-$service.txt"
+
+            cosign verify-attestation "$digest_ref" \
+              --type cyclonedx \
+              --certificate-identity "$identity" \
+              --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+              2>&1 | tee "reports/cosign/cosign-verify-attestation-$service.txt"
+
             echo "| $service | \`$image\` | \`$digest\` | PASS | \`$sbom_report\` | PASS |" >> "$pr_body"
             echo "| $service | \`$image\` | \`$digest\` | PASS | \`$sbom_report\` | PASS |" >> "$summary_report"
             echo "| $service | \`$image\` | \`$digest\` |" >> "$digest_report"
