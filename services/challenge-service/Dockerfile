@@ -4,7 +4,9 @@ WORKDIR /app
 COPY pom.xml .
 COPY .mvn .mvn
 COPY mvnw .
-RUN chmod +x mvnw && ./mvnw dependency:go-offline -B
+RUN sed -i 's/\r$//' mvnw .mvn/wrapper/maven-wrapper.properties \
+  && chmod +x mvnw \
+  && ./mvnw dependency:go-offline -B
 
 COPY src src
 RUN ./mvnw package -DskipTests -B
