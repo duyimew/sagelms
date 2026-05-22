@@ -4,4 +4,5 @@ kind: Kustomization
 resources:
   - gitrepository.yaml
   - apps-kustomization.yaml
+  - harbor-kustomization.yaml
   - fluxcd-web-ui.yaml

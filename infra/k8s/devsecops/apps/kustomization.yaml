@@ -4,6 +4,7 @@ kind: Kustomization
 namespace: sagelms-devsecops
 
 resources:
+  - namespace.yaml
   - ../../base/apps
   - app-shared-externalsecret.yaml
   - harbor-pull-externalsecret.yaml
@@ -11,28 +12,28 @@ resources:
 
 images:
   - name: harbor.sagelms.dev/sagelms-app/gateway
-    newName: harbor.sagelm.id.vn/sagelms-app/gateway
+    newName: harbor.sagelms.id.vn/sagelms-app/gateway
     newTag: dev
   - name: harbor.sagelms.dev/sagelms-app/auth-service
-    newName: harbor.sagelm.id.vn/sagelms-app/auth-service
+    newName: harbor.sagelms.id.vn/sagelms-app/auth-service
     newTag: dev
   - name: harbor.sagelms.dev/sagelms-app/course-service
-    newName: harbor.sagelm.id.vn/sagelms-app/course-service
+    newName: harbor.sagelms.id.vn/sagelms-app/course-service
     newTag: dev
   - name: harbor.sagelms.dev/sagelms-app/content-service
-    newName: harbor.sagelm.id.vn/sagelms-app/content-service
+    newName: harbor.sagelms.id.vn/sagelms-app/content-service
     newTag: dev
   - name: harbor.sagelms.dev/sagelms-app/progress-service
-    newName: harbor.sagelm.id.vn/sagelms-app/progress-service
+    newName: harbor.sagelms.id.vn/sagelms-app/progress-service
     newTag: dev
   - name: harbor.sagelms.dev/sagelms-app/assessment-service
-    newName: harbor.sagelm.id.vn/sagelms-app/assessment-service
+    newName: harbor.sagelms.id.vn/sagelms-app/assessment-service
     newTag: dev
   - name: harbor.sagelms.dev/sagelms-app/challenge-service
-    newName: harbor.sagelm.id.vn/sagelms-app/challenge-service
+    newName: harbor.sagelms.id.vn/sagelms-app/challenge-service
     newTag: dev
   - name: harbor.sagelms.dev/sagelms-app/web
-    newName: harbor.sagelm.id.vn/sagelms-app/web
+    newName: harbor.sagelms.id.vn/sagelms-app/web
     newTag: dev
 
 patches:
