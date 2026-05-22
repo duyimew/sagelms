@@ -91,6 +91,8 @@ module "harbor_registry_storage" {
   ksa_namespace      = var.harbor_registry_ksa_namespace
   ksa_name           = var.harbor_registry_ksa_name
   versioning_enabled = var.harbor_registry_bucket_versioning_enabled
+  log_bucket_name    = var.harbor_registry_log_bucket_name
+  log_object_prefix  = var.harbor_registry_log_object_prefix
   labels             = local.labels
 
   depends_on = [module.project_services, module.gke]

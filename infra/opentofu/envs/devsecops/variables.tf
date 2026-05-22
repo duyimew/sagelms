@@ -173,3 +173,15 @@ variable "harbor_registry_bucket_versioning_enabled" {
   type        = bool
   default     = true
 }
+
+variable "harbor_registry_log_bucket_name" {
+  description = "Optional bucket that receives Harbor registry bucket access logs. Null keeps the current project-level audit-log-only baseline."
+  type        = string
+  default     = null
+}
+
+variable "harbor_registry_log_object_prefix" {
+  description = "Object prefix for Harbor registry bucket access logs when harbor_registry_log_bucket_name is set."
+  type        = string
+  default     = "harbor-registry-access"
+}

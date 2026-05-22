@@ -8,6 +8,15 @@ resource "google_storage_bucket" "registry" {
   public_access_prevention    = "enforced"
   labels                      = var.labels
 
+  dynamic "logging" {
+    for_each = var.log_bucket_name == null ? [] : [var.log_bucket_name]
+
+    content {
+      log_bucket        = logging.value
+      log_object_prefix = var.log_object_prefix
+    }
+  }
+
   versioning {
     enabled = var.versioning_enabled
   }
@@ -22,7 +31,7 @@ resource "google_service_account" "registry" {
 
 resource "google_storage_bucket_iam_member" "registry_object_admin" {
   bucket = google_storage_bucket.registry.name
-  role   = "roles/storage.objectAdmin"
+  role   = "roles/storage.objectUser"
   member = "serviceAccount:${google_service_account.registry.email}"
 }
 

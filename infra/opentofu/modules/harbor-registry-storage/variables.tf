@@ -40,6 +40,18 @@ variable "force_destroy" {
   default     = false
 }
 
+variable "log_bucket_name" {
+  description = "Optional GCS bucket name that receives Harbor registry bucket access logs. Leave null when project-level audit logs are the only logging control."
+  type        = string
+  default     = null
+}
+
+variable "log_object_prefix" {
+  description = "Object prefix for Harbor registry bucket access logs when log_bucket_name is set."
+  type        = string
+  default     = "harbor-registry-access"
+}
+
 variable "labels" {
   description = "Labels applied to the Harbor registry bucket."
   type        = map(string)

@@ -17,6 +17,7 @@ spec:
         app.kubernetes.io/name: harbor-registry-pvc-to-gcs
     spec:
       serviceAccountName: harbor-registry
+      automountServiceAccountToken: false
       restartPolicy: Never
       securityContext:
         fsGroup: 10000
@@ -24,6 +25,13 @@ spec:
         - name: migrate
           image: gcr.io/google.com/cloudsdktool/google-cloud-cli:slim
           imagePullPolicy: IfNotPresent
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
           securityContext:
             allowPrivilegeEscalation: false
             runAsUser: 0
