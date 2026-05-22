@@ -16,6 +16,7 @@ on:
 
 permissions:
   contents: read
+  id-token: write
 
 concurrency:
   group: build-publish-${{ github.ref }}
@@ -202,6 +203,9 @@ jobs:
           username: ${{ env.REGISTRY_USERNAME }}
           password: ${{ env.REGISTRY_PASSWORD }}
 
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v4.1.2
+
       - name: Build and push image
         id: publish
         env:
@@ -248,6 +252,23 @@ jobs:
           output: sbom-${{ matrix.service }}.cdx.json
           exit-code: "0"
 
+      - name: Sign image digest with Cosign
+        env:
+          DIGEST_IMAGE: ${{ steps.digest.outputs.digest_image }}
+        run: |
+          set -o pipefail
+          cosign sign --yes "${DIGEST_IMAGE}" 2>&1 | tee cosign-sign-${{ matrix.service }}.txt
+
+      - name: Attach signed SBOM attestation
+        env:
+          DIGEST_IMAGE: ${{ steps.digest.outputs.digest_image }}
+        run: |
+          set -o pipefail
+          cosign attest --yes \
+            --predicate sbom-${{ matrix.service }}.cdx.json \
+            --type cyclonedx \
+            "${DIGEST_IMAGE}" 2>&1 | tee cosign-attest-sbom-${{ matrix.service }}.txt
+
       - name: Upload digest artifact
         uses: actions/upload-artifact@v4
         with:
@@ -260,4 +281,13 @@ jobs:
         with:
           name: sbom-pushed-${{ matrix.service }}
           path: sbom-${{ matrix.service }}.cdx.json
+          if-no-files-found: error
+
+      - name: Upload Cosign evidence artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cosign-evidence-${{ matrix.service }}
+          path: |
+            cosign-sign-${{ matrix.service }}.txt
+            cosign-attest-sbom-${{ matrix.service }}.txt
           if-no-files-found: error
