@@ -522,6 +522,4 @@ jobs:
           commit-message: "chore(deploy): update images to ${{ env.IMAGE_TAG }} [skip ci]"
           add-paths: |
             infra/k8s/devsecops/apps/kustomization.yaml
-            reports/image-digests-${{ env.IMAGE_TAG }}.md
-            reports/trivy/*.txt
-            reports/sbom/${{ env.IMAGE_TAG }}/*.json
+            reports
