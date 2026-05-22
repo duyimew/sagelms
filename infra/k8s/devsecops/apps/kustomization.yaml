@@ -8,31 +8,30 @@ resources:
   - app-shared-externalsecret.yaml
   - harbor-pull-externalsecret.yaml
   - ingress.yaml
+  - managed-certificate.yaml
 
 images:
   - name: harbor.sagelms.id.vn/sagelms-app/gateway
     newName: harbor.sagelms.id.vn/sagelms-app/gateway
-    digest: sha256:5d1620d2fc3f120a9fdba2d4d0a69cd8e68ad60d0c8c30e9a7391183fcd03d5d
+    digest: sha256:4d22b51746180f49dfc8fb12f8377b6baf5e471e6c0b3010b3f2ee1a7699679b
   - name: harbor.sagelms.id.vn/sagelms-app/auth-service
     newName: harbor.sagelms.id.vn/sagelms-app/auth-service
-    digest: sha256:356d176843830c320900bd7ee8ddf5daa2a4ba1249bfad90abbd5670bd517867
+    digest: sha256:8d339d78ead645c3669f8a5cddd81f2e56d5e1d196c3bdd783221fb24dea04ec
   - name: harbor.sagelms.id.vn/sagelms-app/course-service
     newName: harbor.sagelms.id.vn/sagelms-app/course-service
-    digest: sha256:3adfe06c86bb046f3beda4789f71c7f31e8a95a1e53746342c214cc4c2ff3841
+    digest: sha256:398f4264573142879529a8b772e849c50d653c21e3149baace7880e04646e290
   - name: harbor.sagelms.id.vn/sagelms-app/content-service
     newName: harbor.sagelms.id.vn/sagelms-app/content-service
-    digest: sha256:8b85378c2e3cd7ef660c41e5ab3de224048e8c68689a03f17722ce94a15620f5
-  # TODO(member-runtime): progress-service is pending supply-chain evidence.
-  # Do not pin a digest until its Harbor image, Trivy report, and SBOM are produced.
+    digest: sha256:bd65d530daeb221f59114885ced3a2e8c2f5f5ab37b37ac6b7e0979bf4bff8b8
   - name: harbor.sagelms.id.vn/sagelms-app/progress-service
     newName: harbor.sagelms.id.vn/sagelms-app/progress-service
-    newTag: dev
+    digest: sha256:9cea71cd02ebf3dd182a83f310336bf84e6f263445ecc8352b618b5b8af5057c
   - name: harbor.sagelms.id.vn/sagelms-app/assessment-service
     newName: harbor.sagelms.id.vn/sagelms-app/assessment-service
-    digest: sha256:ca4fa37ed6f5effc82774272a3feff3000b642e896fc4abdd58bf5d8a6d9f82c
+    digest: sha256:bcd19726f0110b17e11a3ffea2b71d02ff3ae2587a5f33d2c280cfb423adea28
   - name: harbor.sagelms.id.vn/sagelms-app/challenge-service
     newName: harbor.sagelms.id.vn/sagelms-app/challenge-service
-    digest: sha256:6c4cf75db822db2ea4bc2013ea7b1b6e1a2b4fc118752c063503d51de69bd5ca
+    digest: sha256:5632ea69a8985763123cef2a41c883650a8732575218d1221eac4fab561899a9
   # TODO(member-runtime): worker is pending supply-chain evidence.
   # Do not pin a digest until its Harbor image, Trivy report, and SBOM are produced.
   - name: harbor.sagelms.id.vn/sagelms-app/worker
@@ -40,7 +39,7 @@ images:
     newTag: dev
   - name: harbor.sagelms.id.vn/sagelms-app/web
     newName: harbor.sagelms.id.vn/sagelms-app/web
-    digest: sha256:b7f6ba65d272faa26cd2ff132dd3322c8a96eb78598151e7da72181347f7f4c2
+    digest: sha256:c036536d20f592b02b630cafb5e607f12e65ab814b12c4bde0028209bb96903f
 
 patches:
   - target:
@@ -59,6 +58,43 @@ patches:
         path: /metadata/annotations
         value:
           cloud.google.com/neg: '{"ingress": true}'
+  - target:
+      kind: ConfigMap
+      name: assessment-service-config
+    patch: |-
+      - op: add
+        path: /data/SPRING_FLYWAY_ENABLED
+        value: "false"
+      - op: add
+        path: /data/SPRING_JPA_HIBERNATE_DDL_AUTO
+        value: "update"
+  - target:
+      kind: ServiceAccount
+      name: worker
+    patch: |-
+      $patch: delete
+      apiVersion: v1
+      kind: ServiceAccount
+      metadata:
+        name: worker
+  - target:
+      kind: ConfigMap
+      name: worker-config
+    patch: |-
+      $patch: delete
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: worker-config
+  - target:
+      kind: Deployment
+      name: worker
+    patch: |-
+      $patch: delete
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: worker
   - target:
       kind: Service
       name: web
