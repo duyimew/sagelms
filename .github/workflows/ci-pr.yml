@@ -248,13 +248,11 @@ jobs:
       - name: Setup gcloud
         uses: google-github-actions/setup-gcloud@v2
 
-      - name: Verify Secret Manager access
+      - name: Verify CI Secret Manager access
         run: |
           set -euo pipefail
           secrets=(
-            "sagelms-devsecops-jwt-secret"
-            "sagelms-devsecops-gateway-shared-secret"
-            "sagelms-devsecops-internal-api-secret"
+            "$GCP_SECRET_SONAR_TOKEN"
           )
 
           for secret in "${secrets[@]}"; do
