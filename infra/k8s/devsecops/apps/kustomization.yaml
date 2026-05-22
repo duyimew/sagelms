@@ -14,7 +14,7 @@ images:
     newTag: 1b21116f523c3e40c4c223988b88c73f55cfebf0
   - name: harbor.sagelms.id.vn/sagelms-app/auth-service
     newName: harbor.sagelms.id.vn/sagelms-app/auth-service
-    newTag: 1b21116f523c3e40c4c223988b88c73f55cfebf0
+    newTag: 95c8ec23476ac55a06b3d007270fb5fad6b62000
   - name: harbor.sagelms.id.vn/sagelms-app/course-service
     newName: harbor.sagelms.id.vn/sagelms-app/course-service
     newTag: 1b21116f523c3e40c4c223988b88c73f55cfebf0
