@@ -25,7 +25,6 @@ images:
     newTag: dev
   - name: harbor.sagelms.dev/sagelms-app/progress-service
     newName: harbor.hldthang.io.vn/sagelms-app/progress-service
-    newName: harbor.hldthang.io.vn/sagelms-app/progress-service
     newTag: dev
   - name: harbor.sagelms.dev/sagelms-app/assessment-service
     newName: harbor.hldthang.io.vn/sagelms-app/assessment-service
