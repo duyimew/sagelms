@@ -7,6 +7,7 @@ resources:
   - ../../base/apps
   - app-shared-externalsecret.yaml
   - harbor-pull-externalsecret.yaml
+  - harbor-pull-externalsecret.yaml
   - ingress.yaml
 
 images:
@@ -23,6 +24,7 @@ images:
     newName: harbor.hldthang.io.vn/sagelms-app/content-service
     newTag: dev
   - name: harbor.sagelms.dev/sagelms-app/progress-service
+    newName: harbor.hldthang.io.vn/sagelms-app/progress-service
     newName: harbor.hldthang.io.vn/sagelms-app/progress-service
     newTag: dev
   - name: harbor.sagelms.dev/sagelms-app/assessment-service
