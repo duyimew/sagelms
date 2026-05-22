@@ -18,7 +18,7 @@ RUN addgroup -S sagelms \
   && adduser -S sagelms -G sagelms \
   && mkdir -p /data/content-uploads \
   && chown -R sagelms:sagelms /data
-COPY --from=build --chown=sagelms:sagelms --chmod=0444 /app/target/*.jar app.jar
+COPY --from=build --chmod=0444 /app/target/*.jar app.jar
 
 USER sagelms
 EXPOSE 8083
