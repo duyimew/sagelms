@@ -11,6 +11,12 @@ permissions:
   pull-requests: read
   id-token: write
 
+env:
+  GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+  GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+  GCP_SERVICE_ACCOUNT: ${{ vars.GCP_SERVICE_ACCOUNT }}
+  GCP_SECRET_SONAR_TOKEN: ${{ vars.GCP_SECRET_SONAR_TOKEN || 'sagelms-devsecops-sonarcloud-token' }}
+
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
@@ -551,7 +557,6 @@ jobs:
     if: ${{ vars.ENABLE_SONARCLOUD == 'true' && needs.changes.outputs.any_relevant == 'true' }}
     runs-on: ubuntu-latest
     env:
-      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
       SONAR_PROJECT_KEY: ${{ vars.SONAR_PROJECT_KEY }}
       SONAR_ORGANIZATION: ${{ vars.SONAR_ORGANIZATION }}
     steps:
@@ -565,14 +570,10 @@ jobs:
           java-version: 17
           cache: maven
 
-      - name: Check SonarCloud configuration
+      - name: Check SonarCloud and GCP Secret Manager configuration
         run: |
           set -euo pipefail
           missing=0
-          if [[ -z "$SONAR_TOKEN" ]]; then
-            echo "Missing repository secret: SONAR_TOKEN"
-            missing=1
-          fi
           if [[ -z "$SONAR_PROJECT_KEY" ]]; then
             echo "Missing repository variable: SONAR_PROJECT_KEY"
             missing=1
@@ -581,9 +582,49 @@ jobs:
             echo "Missing repository variable: SONAR_ORGANIZATION"
             missing=1
           fi
+          if [[ -z "$GCP_PROJECT_ID" ]]; then
+            echo "Missing repository variable: GCP_PROJECT_ID"
+            missing=1
+          fi
+          if [[ -z "$GCP_WORKLOAD_IDENTITY_PROVIDER" ]]; then
+            echo "Missing repository variable: GCP_WORKLOAD_IDENTITY_PROVIDER"
+            missing=1
+          fi
+          if [[ -z "$GCP_SERVICE_ACCOUNT" ]]; then
+            echo "Missing repository variable: GCP_SERVICE_ACCOUNT"
+            missing=1
+          fi
+          if [[ -z "$GCP_SECRET_SONAR_TOKEN" ]]; then
+            echo "Missing repository variable: GCP_SECRET_SONAR_TOKEN"
+            missing=1
+          fi
           if [[ $missing -ne 0 ]]; then
             exit 1
           fi
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ env.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ env.GCP_SERVICE_ACCOUNT }}
+
+      - name: Setup gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Read SonarCloud token from Secret Manager
+        run: |
+          set -euo pipefail
+          sonar_token="$(gcloud secrets versions access latest --secret "$GCP_SECRET_SONAR_TOKEN" --project "$GCP_PROJECT_ID")"
+          if [[ -z "$sonar_token" ]]; then
+            echo "::error::Secret $GCP_SECRET_SONAR_TOKEN has an empty latest version"
+            exit 1
+          fi
+          echo "::add-mask::$sonar_token"
+          {
+            echo "SONAR_TOKEN<<EOF"
+            printf '%s\n' "$sonar_token"
+            echo "EOF"
+          } >> "$GITHUB_ENV"
 
       - name: Compile Java services for SonarCloud
         run: |
@@ -612,8 +653,6 @@ jobs:
 
       - name: SonarCloud scan
         uses: SonarSource/sonarqube-scan-action@7006c4492b2e0ee0f816d36501671557c97f5995
-        env:
-          SONAR_TOKEN: ${{ env.SONAR_TOKEN }}
         with:
           args: >
             -Dsonar.projectKey=${{ env.SONAR_PROJECT_KEY }}
